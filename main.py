@@ -186,14 +186,14 @@ def get_main_menu() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="👤 My Account", callback_data="my_account"),
-            InlineKeyboardButton(text="📜 Order History", callback_data="order_history")
+            InlineKeyboardButton(text="⚙️ Services & Tools", callback_data="services_tools")
         ],
         [
             InlineKeyboardButton(text="📈 Service List", callback_data="service_list"),
             InlineKeyboardButton(text="🎫 Support Tickets", callback_data="support_tickets")
         ],
         [
-            InlineKeyboardButton(text="🎁 Refer & Earn", callback_data="refer_earn"),
+            InlineKeyboardButton(text="🎁 Offers & Rewards", callback_data="offers_rewards"),
             InlineKeyboardButton(text="👑 Admin Panel", callback_data="admin_panel")
         ],
         [
@@ -263,6 +263,13 @@ def get_account_menu() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="📊 Statistics", callback_data="user_stats")
         ],
         [
+            InlineKeyboardButton(text="📜 Order History", callback_data="order_history"),
+            InlineKeyboardButton(text="🔔 Smart Alerts", callback_data="smart_alerts")
+        ],
+        [
+            InlineKeyboardButton(text="🌐 Language / भाषा", callback_data="language_settings")
+        ],
+        [
             InlineKeyboardButton(text="⬅️ Main Menu", callback_data="back_main")
         ]
     ])
@@ -276,7 +283,50 @@ def get_contact_menu() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="💬 Support Channel", callback_data="support_channel"),
+            InlineKeyboardButton(text="🤖 AI Support", callback_data="ai_support")
+        ],
+        [
+            InlineKeyboardButton(text="👨‍💼 Contact Admin", callback_data="contact_admin"),
             InlineKeyboardButton(text="📜 Seva Ki Shartein (TOS)", callback_data="terms_service")
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Main Menu", callback_data="back_main")
+        ]
+    ])
+
+def get_services_tools_menu() -> InlineKeyboardMarkup:
+    """Build services & tools menu"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📦 Mass Order", callback_data="mass_order"),
+            InlineKeyboardButton(text="🔄 Subscriptions", callback_data="subscriptions")
+        ],
+        [
+            InlineKeyboardButton(text="📊 Profile Analyzer", callback_data="profile_analyzer"),
+            InlineKeyboardButton(text="## Hashtag Generator", callback_data="hashtag_generator")
+        ],
+        [
+            InlineKeyboardButton(text="✨ Free Trial Service", callback_data="free_trial")
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Main Menu", callback_data="back_main")
+        ]
+    ])
+
+def get_offers_rewards_menu() -> InlineKeyboardMarkup:
+    """Build offers & rewards menu"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🎟️ Coupon Redeem Karein", callback_data="coupon_redeem"),
+            InlineKeyboardButton(text="🤝 Partner Program", callback_data="partner_program")
+        ],
+        [
+            InlineKeyboardButton(text="🏆 Loyalty Program", callback_data="loyalty_program"),
+            InlineKeyboardButton(text="🎉 Daily Reward", callback_data="daily_reward")
+        ],
+        [
+            InlineKeyboardButton(text="🥇 Leaderboard", callback_data="leaderboard"),
+            InlineKeyboardButton(text="📝 Community Polls", callback_data="community_polls")
         ],
         [
             InlineKeyboardButton(text="⬅️ Main Menu", callback_data="back_main")
@@ -518,43 +568,70 @@ async def cb_my_account(callback: CallbackQuery):
     await callback.message.edit_text(text, reply_markup=get_account_menu())
     await callback.answer()
 
-@dp.callback_query(F.data == "refer_earn")
+@dp.callback_query(F.data == "services_tools")
 @require_account
-async def cb_refer_earn(callback: CallbackQuery):
-    """Handle referral program"""
-    if not callback.message or not callback.from_user:
+async def cb_services_tools(callback: CallbackQuery):
+    """Handle services & tools menu"""
+    if not callback.message:
         return
         
-    user_id = callback.from_user.id
-    user_data = users_data.get(user_id, {})
-    referral_code = user_data.get('referral_code', 'ISPXXXXXX')
-    
-    text = f"""
-🎁 <b>Refer & Earn Program</b>
+    text = """
+⚙️ <b>Services & Tools</b>
 
-💰 <b>हर successful referral पर 10% commission पाएं!</b>
+🚀 <b>Advanced SMM Tools & Features</b>
 
-🔗 <b>आपका Referral Link:</b>
-<code>https://t.me/{bot.username}?start={referral_code}</code>
+💎 <b>Professional Tools:</b>
+• Bulk order management
+• Auto-renewal subscriptions
+• Analytics & insights
+• Content optimization
 
-📋 <b>आपका Referral Code:</b>
-<code>{referral_code}</code>
+🎯 <b>Smart Features:</b>
+• AI-powered recommendations
+• Performance tracking
+• Growth strategies
+• Market analysis
 
-🎯 <b>कैसे काम करता है:</b>
-1. अपना link friends को share करें
-2. वे link से bot join करें
-3. जब वे funds add करें, आपको 10% commission मिलेगा
-4. Commission instant आपके balance में add हो जाएगा
-
-💎 <b>Total Referrals:</b> 0
-💰 <b>Total Earnings:</b> ₹0.00
+💡 <b>अपनी जरूरत के अनुसार tool चुनें:</b>
 """
     
-    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Main Menu", callback_data="back_main")]
-    ])
+    await callback.message.edit_text(text, reply_markup=get_services_tools_menu())
+    await callback.answer()
+
+@dp.callback_query(F.data == "offers_rewards")
+@require_account
+async def cb_offers_rewards(callback: CallbackQuery):
+    """Handle offers & rewards menu"""
+    if not callback.message:
+        return
+        
+    text = """
+🎁 <b>Offers & Rewards</b>
+
+🌟 <b>Exciting Rewards & Benefits Await!</b>
+
+💰 <b>Earn More, Save More:</b>
+• Daily login rewards
+• Loyalty points system
+• Exclusive discounts
+• Partner benefits
+
+🏆 <b>Community Features:</b>
+• Leaderboard competitions
+• Community voting
+• Special achievements
+• VIP status rewards
+
+🎉 <b>Limited Time Offers:</b>
+• Festival bonuses
+• Referral contests
+• Bulk order discounts
+• Premium memberships
+
+✨ <b>अपना reward claim करें:</b>
+"""
     
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.message.edit_text(text, reply_markup=get_offers_rewards_menu())
     await callback.answer()
 
 @dp.callback_query(F.data == "admin_panel")  
@@ -997,6 +1074,84 @@ async def cb_user_stats(callback: CallbackQuery):
     await callback.message.edit_text(text, reply_markup=back_keyboard)
     await callback.answer()
 
+@dp.callback_query(F.data == "smart_alerts")
+@require_account
+async def cb_smart_alerts(callback: CallbackQuery):
+    """Handle smart alerts settings"""
+    if not callback.message:
+        return
+        
+    text = """
+🔔 <b>Smart Alerts</b>
+
+🎯 <b>Intelligent Notification System</b>
+
+✅ <b>Current Alert Settings:</b>
+• Order completion: ✅ Enabled
+• Low balance warning: ✅ Enabled
+• Offer notifications: ✅ Enabled
+• Service updates: ✅ Enabled
+
+🔧 <b>Advanced Features:</b>
+• Real-time order tracking
+• Price drop alerts
+• New service notifications
+• Promotional alerts
+
+💡 <b>Smart Recommendations:</b>
+• Best time to order
+• Trending services
+• Bulk order suggestions
+• Cost optimization tips
+
+⚙️ <b>Alert customization feature coming soon!</b>
+"""
+    
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ My Account", callback_data="my_account")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
+@dp.callback_query(F.data == "language_settings")
+@require_account
+async def cb_language_settings(callback: CallbackQuery):
+    """Handle language settings"""
+    if not callback.message:
+        return
+        
+    text = """
+🌐 <b>Language / भाषा Settings</b>
+
+🗣️ <b>Choose Your Preferred Language</b>
+
+🇮🇳 <b>Available Languages:</b>
+• हिंदी (Hindi) - Currently Active ✅
+• English - Available
+• বাংলা (Bengali) - Coming Soon
+• ગુજરાતી (Gujarati) - Coming Soon
+• ಕನ್ನಡ (Kannada) - Coming Soon
+
+🎯 <b>Features:</b>
+• Complete UI translation
+• Support in your language
+• Cultural customization
+• Regional pricing display
+
+💡 <b>Language selection feature coming soon!</b>
+🔄 <b>Currently optimized for Hindi & English</b>
+
+📞 <b>Multi-language support:</b> @{OWNER_USERNAME}
+"""
+    
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ My Account", callback_data="my_account")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
 # ========== ORDER CONFIRMATION HANDLERS ==========
 @dp.callback_query(F.data == "confirm_order")
 @require_account
@@ -1112,6 +1267,212 @@ async def cb_cancel_order(callback: CallbackQuery):
     await callback.message.edit_text(text, reply_markup=get_main_menu())
     await callback.answer()
 
+# ========== SERVICES & TOOLS HANDLERS ==========
+@dp.callback_query(F.data == "mass_order")
+@require_account
+async def cb_mass_order(callback: CallbackQuery):
+    """Handle mass order feature"""
+    if not callback.message:
+        return
+        
+    text = """
+📦 <b>Mass Order</b>
+
+🚀 <b>Bulk Order Management System</b>
+
+💎 <b>Features:</b>
+• Multiple orders at once
+• CSV file upload support
+• Bulk pricing discounts
+• Progress tracking
+
+📋 <b>Supported Formats:</b>
+• Multiple links processing
+• Quantity distribution
+• Service selection
+• Custom delivery schedule
+
+💰 <b>Bulk Discounts:</b>
+• 10+ orders: 5% discount
+• 50+ orders: 10% discount
+• 100+ orders: 15% discount
+
+⚙️ <b>Mass order feature under development!</b>
+🔄 <b>Will be available soon with advanced features</b>
+"""
+    
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Services & Tools", callback_data="services_tools")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
+@dp.callback_query(F.data == "subscriptions")
+@require_account
+async def cb_subscriptions(callback: CallbackQuery):
+    """Handle subscriptions feature"""
+    if not callback.message:
+        return
+        
+    text = """
+🔄 <b>Subscriptions</b>
+
+⏰ <b>Auto-Renewal Service Plans</b>
+
+🎯 <b>Subscription Benefits:</b>
+• Automatic order renewal
+• Consistent growth maintenance
+• Priority delivery
+• Special subscriber rates
+
+📅 <b>Available Plans:</b>
+• Weekly renewals
+• Monthly packages
+• Custom schedules
+• Pause/resume options
+
+💡 <b>Smart Features:</b>
+• Growth tracking
+• Performance analytics
+• Auto-optimization
+• Flexible modifications
+
+🔔 <b>Subscription service coming soon!</b>
+💬 <b>Early access:</b> Contact support for beta testing
+"""
+    
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Services & Tools", callback_data="services_tools")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
+@dp.callback_query(F.data == "profile_analyzer")
+@require_account
+async def cb_profile_analyzer(callback: CallbackQuery):
+    """Handle profile analyzer feature"""
+    if not callback.message:
+        return
+        
+    text = """
+📊 <b>Profile Analyzer</b>
+
+🔍 <b>Advanced Social Media Analytics</b>
+
+📈 <b>Analysis Features:</b>
+• Engagement rate calculation
+• Follower quality assessment
+• Growth trend analysis
+• Optimal posting times
+
+🎯 <b>Insights Provided:</b>
+• Audience demographics
+• Content performance
+• Competitor analysis
+• Growth recommendations
+
+💡 <b>AI-Powered Reports:</b>
+• Personalized strategies
+• Market positioning
+• Content suggestions
+• Hashtag optimization
+
+🔬 <b>Profile analyzer tool under development!</b>
+✨ <b>Will include AI-powered insights and recommendations</b>
+"""
+    
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Services & Tools", callback_data="services_tools")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
+@dp.callback_query(F.data == "hashtag_generator")
+@require_account
+async def cb_hashtag_generator(callback: CallbackQuery):
+    """Handle hashtag generator feature"""
+    if not callback.message:
+        return
+        
+    text = """
+## <b>Hashtag Generator</b>
+
+🏷️ <b>AI-Powered Hashtag Creation Tool</b>
+
+🎯 <b>Smart Features:</b>
+• Trending hashtag suggestions
+• Niche-specific tags
+• Engagement optimization
+• Regional relevance
+
+📊 <b>Analytics Integration:</b>
+• Performance tracking
+• Reach estimation
+• Competition analysis
+• Viral potential score
+
+🇮🇳 <b>India-Focused:</b>
+• Local trending topics
+• Cultural relevance
+• Regional languages
+• Festival-based tags
+
+🤖 <b>AI-powered hashtag generator coming soon!</b>
+⚡ <b>Will generate optimized hashtags for maximum reach</b>
+"""
+    
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Services & Tools", callback_data="services_tools")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
+@dp.callback_query(F.data == "free_trial")
+@require_account
+async def cb_free_trial(callback: CallbackQuery):
+    """Handle free trial service"""
+    if not callback.message:
+        return
+        
+    text = """
+✨ <b>Free Trial Service</b>
+
+🎁 <b>Try Our Premium Services For Free!</b>
+
+🆓 <b>Available Free Trials:</b>
+• 100 Instagram Likes - FREE
+• 50 YouTube Views - FREE
+• 25 Facebook Reactions - FREE
+• 10 TikTok Likes - FREE
+
+📋 <b>Trial Conditions:</b>
+• One trial per platform
+• Account verification required
+• No payment needed
+• Quality guaranteed
+
+🎯 <b>Trial Benefits:</b>
+• Experience our quality
+• Test delivery speed
+• Verify safety
+• Build confidence
+
+🔥 <b>Free trial service launching soon!</b>
+💡 <b>Perfect way to test our premium quality services</b>
+"""
+    
+    trial_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📞 Request Trial", url=f"https://t.me/{OWNER_USERNAME}")],
+        [InlineKeyboardButton(text="⬅️ Services & Tools", callback_data="services_tools")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=trial_keyboard)
+    await callback.answer()
+
 # ========== CONTACT & ABOUT SUB-MENU HANDLERS ==========
 @dp.callback_query(F.data == "website_info")
 async def cb_website_info(callback: CallbackQuery):
@@ -1218,6 +1579,351 @@ async def cb_terms_service(callback: CallbackQuery):
     ])
     
     await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
+# ========== OFFERS & REWARDS HANDLERS ==========
+@dp.callback_query(F.data == "coupon_redeem")
+@require_account
+async def cb_coupon_redeem(callback: CallbackQuery):
+    """Handle coupon redeem feature"""
+    if not callback.message:
+        return
+        
+    text = """
+🎟️ <b>Coupon Redeem Karein</b>
+
+💝 <b>Discount Coupons & Promo Codes</b>
+
+🎯 <b>Active Offers:</b>
+• WELCOME10 - 10% off first order
+• BULK20 - 20% off on orders above ₹2000
+• FESTIVAL25 - 25% festival special
+• REFER15 - 15% off via referral
+
+💡 <b>How to Use:</b>
+1. Get coupon code
+2. Enter during checkout
+3. Discount applied instantly
+4. Save money on orders
+
+🔥 <b>Special Coupons:</b>
+• Daily login rewards
+• Loyalty member exclusive
+• Limited time offers
+• Seasonal promotions
+
+🎟️ <b>Coupon system coming soon!</b>
+💬 <b>Get exclusive codes:</b> @{OWNER_USERNAME}
+"""
+    
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Offers & Rewards", callback_data="offers_rewards")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
+@dp.callback_query(F.data == "partner_program")
+@require_account
+async def cb_partner_program(callback: CallbackQuery):
+    """Handle partner program feature"""
+    if not callback.message:
+        return
+        
+    text = """
+🤝 <b>Partner Program</b>
+
+💼 <b>Business Partnership Opportunities</b>
+
+🎯 <b>Partnership Benefits:</b>
+• Wholesale pricing (up to 40% off)
+• Priority customer support
+• Dedicated account manager
+• Custom branding options
+
+📊 <b>Partner Tiers:</b>
+• Bronze: ₹10,000+ monthly
+• Silver: ₹25,000+ monthly
+• Gold: ₹50,000+ monthly
+• Platinum: ₹1,00,000+ monthly
+
+💡 <b>Exclusive Features:</b>
+• API access
+• White-label solutions
+• Bulk order management
+• Revenue sharing program
+
+🚀 <b>Partner program launching soon!</b>
+📞 <b>Business inquiries:</b> @{OWNER_USERNAME}
+"""
+    
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Offers & Rewards", callback_data="offers_rewards")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
+@dp.callback_query(F.data == "loyalty_program")
+@require_account
+async def cb_loyalty_program(callback: CallbackQuery):
+    """Handle loyalty program feature"""
+    if not callback.message:
+        return
+        
+    text = """
+🏆 <b>Loyalty Program</b>
+
+💎 <b>Exclusive Benefits for Regular Customers</b>
+
+🌟 <b>Loyalty Tiers:</b>
+• Bronze: ₹0-₹5,000 spent
+• Silver: ₹5,001-₹15,000 spent
+• Gold: ₹15,001-₹50,000 spent
+• Platinum: ₹50,000+ spent
+
+🎁 <b>Tier Benefits:</b>
+• Bronze: 2% cashback
+• Silver: 5% cashback + priority support
+• Gold: 8% cashback + exclusive offers
+• Platinum: 12% cashback + VIP treatment
+
+💡 <b>Loyalty Points:</b>
+• Earn 1 point per ₹10 spent
+• Redeem points for discounts
+• Bonus points on special days
+• Referral bonus points
+
+🔥 <b>Loyalty program launching soon!</b>
+✨ <b>Start earning rewards on every order!</b>
+"""
+    
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Offers & Rewards", callback_data="offers_rewards")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
+@dp.callback_query(F.data == "daily_reward")
+@require_account
+async def cb_daily_reward(callback: CallbackQuery):
+    """Handle daily reward feature"""
+    if not callback.message:
+        return
+        
+    text = """
+🎉 <b>Daily Reward</b>
+
+🎁 <b>Login करें और Daily Rewards पाएं!</b>
+
+📅 <b>Daily Login Streak:</b>
+• Day 1: ₹5 bonus
+• Day 3: ₹10 bonus
+• Day 7: ₹25 bonus
+• Day 15: ₹50 bonus
+• Day 30: ₹100 bonus
+
+⚡ <b>Special Rewards:</b>
+• Weekend bonus (2x rewards)
+• Festival special rewards
+• Birthday month bonus
+• Milestone achievements
+
+🎯 <b>Additional Benefits:</b>
+• Spin wheel daily
+• Lucky draw entries
+• Surprise gift boxes
+• Exclusive coupon codes
+
+🎊 <b>Daily reward system launching soon!</b>
+💫 <b>Make it a habit to login daily for maximum benefits!</b>
+"""
+    
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Offers & Rewards", callback_data="offers_rewards")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
+@dp.callback_query(F.data == "leaderboard")
+@require_account
+async def cb_leaderboard(callback: CallbackQuery):
+    """Handle leaderboard feature"""
+    if not callback.message:
+        return
+        
+    text = """
+🥇 <b>Leaderboard</b>
+
+🏆 <b>Top Users Ranking & Competitions</b>
+
+👑 <b>Monthly Leaderboard:</b>
+1. 🥇 @champion_user - ₹45,000 spent
+2. 🥈 @pro_marketer - ₹38,000 spent  
+3. 🥉 @social_king - ₹32,000 spent
+... और भी users
+
+🎯 <b>Ranking Categories:</b>
+• Total spending
+• Most orders placed
+• Referral champions
+• Loyalty points earned
+
+🏅 <b>Leaderboard Rewards:</b>
+• Top 3: Special badges + bonuses
+• Top 10: Exclusive discounts
+• Top 50: Priority support
+• All participants: Recognition
+
+🔥 <b>Leaderboard system launching soon!</b>
+💪 <b>Compete with other users and win exciting prizes!</b>
+"""
+    
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Offers & Rewards", callback_data="offers_rewards")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
+@dp.callback_query(F.data == "community_polls")
+@require_account
+async def cb_community_polls(callback: CallbackQuery):
+    """Handle community polls feature"""
+    if not callback.message:
+        return
+        
+    text = """
+📝 <b>Community Polls</b>
+
+🗳️ <b>Your Voice Matters - Help Shape Our Services!</b>
+
+📊 <b>Current Active Poll:</b>
+"Which new platform should we add next?"
+• 🎵 TikTok India - 45%
+• 📺 YouTube Shorts - 35%
+• 💼 LinkedIn India - 20%
+
+💡 <b>Previous Poll Results:</b>
+• "Best delivery time?" → 0-6 hours won
+• "Preferred payment method?" → UPI won
+• "Most wanted service?" → Instagram Reels won
+
+🎁 <b>Poll Participation Rewards:</b>
+• Vote करने पर points मिलते हैं
+• Monthly poll winners get bonuses
+• Community feedback valued
+• Special recognition for active voters
+
+🗳️ <b>Community polling system launching soon!</b>
+👥 <b>Be part of India Social Panel's growth decisions!</b>
+"""
+    
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Offers & Rewards", callback_data="offers_rewards")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
+# ========== AI SUPPORT & CONTACT ADMIN HANDLERS ==========
+@dp.callback_query(F.data == "ai_support")
+async def cb_ai_support(callback: CallbackQuery):
+    """Handle AI support feature"""
+    if not callback.message:
+        return
+        
+    text = """
+🤖 <b>AI Support</b>
+
+🧠 <b>Intelligent Assistant - 24/7 Available</b>
+
+⚡ <b>AI Features:</b>
+• Instant query resolution
+• Smart troubleshooting
+• Order tracking assistance
+• Service recommendations
+
+🎯 <b>What AI Can Help With:</b>
+• Account related questions
+• Order status inquiries  
+• Payment issues
+• Service explanations
+• Best practices guidance
+
+💡 <b>Smart Responses:</b>
+• Natural language understanding
+• Context-aware answers
+• Multi-language support
+• Learning from interactions
+
+🤖 <b>AI Support system under development!</b>
+⚡ <b>Will provide instant, intelligent assistance 24/7</b>
+
+📞 <b>For now, contact human support:</b> @{OWNER_USERNAME}
+"""
+    
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💬 Chat with Human", url=f"https://t.me/{OWNER_USERNAME}")],
+        [InlineKeyboardButton(text="⬅️ Back", callback_data="contact_about")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await callback.answer()
+
+@dp.callback_query(F.data == "contact_admin")
+async def cb_contact_admin(callback: CallbackQuery):
+    """Handle contact admin feature"""
+    if not callback.message:
+        return
+        
+    text = f"""
+👨‍💼 <b>Contact Admin</b>
+
+📞 <b>Direct Admin Support</b>
+
+👤 <b>Main Admin:</b>
+• Name: {OWNER_NAME}
+• Username: @{OWNER_USERNAME}
+• Response Time: 2-6 hours
+• Available: 9 AM - 11 PM IST
+
+💼 <b>Support Team:</b>
+• @SupportManager_ISP
+• @TechnicalSupport_ISP  
+• @BillingSupport_ISP
+• @AccountManager_ISP
+
+⚡ <b>Quick Support Categories:</b>
+• 🆘 Emergency issues
+• 💰 Payment problems
+• 🔧 Technical difficulties
+• 💼 Business inquiries
+• 🎁 Partnership requests
+
+🚀 <b>Premium Support:</b>
+For VIP customers and partners, we provide priority support with dedicated account managers.
+
+📱 <b>Choose your preferred contact method:</b>
+"""
+    
+    admin_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="💬 Main Admin", url=f"https://t.me/{OWNER_USERNAME}"),
+            InlineKeyboardButton(text="🆘 Emergency", url="https://t.me/SupportManager_ISP")
+        ],
+        [
+            InlineKeyboardButton(text="💰 Billing Support", url="https://t.me/BillingSupport_ISP"),
+            InlineKeyboardButton(text="🔧 Technical Help", url="https://t.me/TechnicalSupport_ISP")
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Back", callback_data="contact_about")
+        ]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=admin_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "create_ticket")

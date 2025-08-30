@@ -16,6 +16,25 @@ from typing import Dict, Any, Optional
 from aiogram import F
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message
 
+async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None) -> bool:
+    """Safely edit callback message with comprehensive error handling"""
+    if not callback.message:
+        return False
+    
+    # Check if message is accessible and has text
+    if not hasattr(callback.message, 'edit_text') or not hasattr(callback.message, 'text') or not callback.message.text:
+        return False
+        
+    try:
+        if reply_markup:
+            await callback.message.edit_text(text, reply_markup=reply_markup)
+        else:
+            await callback.message.edit_text(text)
+        return True
+    except Exception as e:
+        print(f"Error editing message: {e}")
+        return False
+
 # Payment configuration
 PAYMENT_CONFIG = {
     "upi_id": "0m12vx8@jio",
@@ -93,7 +112,7 @@ def generate_payment_qr(amount: float, upi_id: str, name: str, transaction_id: s
     try:
         # UPI payment string format
         upi_string = f"upi://pay?pa={upi_id}&pn={name}&am={amount}&cu=INR&tn=Payment%20to%20{name.replace(' ', '%20')}&tr={transaction_id}"
-        
+
         # Generate QR code
         qr = qrcode.QRCode(
             version=1,
@@ -103,17 +122,17 @@ def generate_payment_qr(amount: float, upi_id: str, name: str, transaction_id: s
         )
         qr.add_data(upi_string)
         qr.make(fit=True)
-        
+
         # Create QR code image
         qr_image = qr.make_image(fill_color="black", back_color="white")
-        
+
         # Convert to base64 for easy handling
         buffer = io.BytesIO()
         qr_image.save(buffer, format='PNG')
         buffer.seek(0)
-        
+
         return buffer.getvalue()
-        
+
     except Exception as e:
         print(f"QR Code generation error: {e}")
         return None
@@ -164,12 +183,12 @@ def get_wallet_payment_menu() -> InlineKeyboardMarkup:
 
 def register_payment_handlers(main_dp, main_users_data, main_user_state, main_format_currency):
     """Register all payment handlers"""
-    
+
     # Initialize payment system
     init_payment_system(main_dp, main_users_data, main_user_state, main_format_currency)
-    
+
     print("🔄 Registering payment handlers...")  # Debug log
-    
+
     @main_dp.callback_query(F.data.startswith("fund_"))
     async def cb_fund_amount_select(callback: CallbackQuery):
         """Handle fund amount selection with payment methods"""
@@ -183,7 +202,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
             # Initialize user state if not exists
             if user_id not in user_state:
                 user_state[user_id] = {"current_step": None, "data": {}}
-            
+
             user_state[user_id]["current_step"] = "waiting_custom_amount"
 
             text = """
@@ -199,7 +218,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
 🔒 <b>Secure Payment Processing</b>
 ✅ <b>Multiple payment options available</b>
 """
-            await callback.message.edit_text(text)
+            await safe_edit_message(callback, text)
         else:
             # Fixed amount selected - show payment methods
             try:
@@ -245,7 +264,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
             [InlineKeyboardButton(text="⬅️ Back to Bank Transfer", callback_data="payment_bank")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        await safe_edit_message(callback, text, keyboard)
         await callback.answer()
 
     @main_dp.callback_query(F.data.startswith("wallet_"))
@@ -255,7 +274,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
             return
 
         wallet = (callback.data or "").replace("wallet_", "")
-        
+
         wallet_info = {
             "paytm": ("💙 Paytm", "paytm@indiasmm", "Most popular in India"),
             "phonepe": ("🟢 PhonePe", "phonepe@indiasmm", "UPI + Wallet combo"),
@@ -264,10 +283,10 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
             "jio": ("🔵 JioMoney", "jio@indiasmm", "Jio ecosystem"),
             "freecharge": ("🟠 FreeCharge", "freecharge@indiasmm", "Quick recharges")
         }
-        
+
         if wallet in wallet_info:
             name, upi_id, description = wallet_info[wallet]
-            
+
             text = f"""
 {name} <b>Payment</b>
 
@@ -293,8 +312,8 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
                 [InlineKeyboardButton(text="⬅️ Back to Wallets", callback_data="payment_wallet")]
             ])
 
-            await callback.message.edit_text(text, reply_markup=keyboard)
-        
+            await safe_edit_message(callback, text, keyboard)
+
         await callback.answer()
 
     @main_dp.callback_query(F.data == "payment_card")
@@ -341,7 +360,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
             [InlineKeyboardButton(text="⬅️ Back to Payment", callback_data="add_funds")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        await safe_edit_message(callback, text, keyboard)
         await callback.answer()
 
     @main_dp.callback_query(F.data == "copy_bank_details")
@@ -382,7 +401,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
             [InlineKeyboardButton(text="⬅️ Back to Bank Transfer", callback_data="payment_bank")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        await safe_edit_message(callback, text, keyboard)
         await callback.answer("✅ Bank details copied!", show_alert=True)
 
     @main_dp.callback_query(F.data.startswith("payment_done_"))
@@ -423,7 +442,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
             [InlineKeyboardButton(text="🏠 Main Menu", callback_data="back_main")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        await safe_edit_message(callback, text, keyboard)
         await callback.answer("✅ Payment confirmed! Send screenshot to admin.", show_alert=True)
 
     @main_dp.callback_query(F.data == "upi_guide")
@@ -465,7 +484,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
             [InlineKeyboardButton(text="⬅️ Back to UPI Payment", callback_data="payment_upi")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        await safe_edit_message(callback, text, keyboard)
         await callback.answer()
 
     @main_dp.callback_query(F.data == "bank_guide")
@@ -511,7 +530,7 @@ Send transaction screenshot to @achal_parvat
             [InlineKeyboardButton(text="⬅️ Back to Bank Transfer", callback_data="payment_bank")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        await safe_edit_message(callback, text, keyboard)
         await callback.answer()
 
     @main_dp.callback_query(F.data == "payment_history")
@@ -542,7 +561,7 @@ Send transaction screenshot to @achal_parvat
             [InlineKeyboardButton(text="⬅️ Back to Payment", callback_data="add_funds")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        await safe_edit_message(callback, text, keyboard)
         await callback.answer()
 
     @main_dp.callback_query(F.data == "payment_support")
@@ -590,7 +609,7 @@ Send transaction screenshot to @achal_parvat
             [InlineKeyboardButton(text="⬅️ Back to Payment", callback_data="add_funds")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        await safe_edit_message(callback, text, keyboard)
         await callback.answer()
 
     @main_dp.callback_query(F.data == "payment_upi")
@@ -601,9 +620,9 @@ Send transaction screenshot to @achal_parvat
 
         user_id = callback.from_user.id
         amount = user_state.get(user_id, {}).get("data", {}).get("payment_amount", 1000)
-        
+
         transaction_id = f"UPI{int(time.time())}{random.randint(100, 999)}"
-        
+
         # Store transaction details
         if user_id not in user_state:
             user_state[user_id] = {"current_step": None, "data": {}}
@@ -631,7 +650,7 @@ Send transaction screenshot to @achal_parvat
 ⚡ <b>Instant Credit Guarantee</b>
 """
 
-        await callback.message.edit_text(text, reply_markup=get_upi_payment_menu(amount, transaction_id))
+        await safe_edit_message(callback, text, get_upi_payment_menu(amount, transaction_id))
         await callback.answer()
 
     @main_dp.callback_query(F.data.startswith("copy_upi_"))
@@ -664,11 +683,11 @@ Send transaction screenshot to @achal_parvat
 """
 
         try:
-            await callback.message.edit_text(text, reply_markup=get_upi_payment_menu(amount, transaction_id))
+            await safe_edit_message(callback, text, get_upi_payment_menu(amount, transaction_id))
         except Exception as e:
             # If edit fails, send new message
             await callback.message.answer(text, reply_markup=get_upi_payment_menu(amount, transaction_id))
-        
+
         await callback.answer("✅ UPI ID copied: 0m12vx8@jio", show_alert=True)
 
     @main_dp.callback_query(F.data.startswith("qr_generate_"))
@@ -713,22 +732,22 @@ Send transaction screenshot to @achal_parvat
             # Send QR code as photo
             try:
                 from aiogram.types import BufferedInputFile
-                
+
                 # Create input file from bytes
                 qr_file = BufferedInputFile(qr_data, filename="payment_qr.png")
-                
+
                 await callback.message.answer_photo(
                     photo=qr_file,
                     caption=text,
                     reply_markup=get_upi_payment_menu(amount, transaction_id)
                 )
-                
+
                 # Try to delete original message
                 try:
                     await callback.message.delete()
                 except:
                     pass
-                    
+
             except Exception as e:
                 print(f"QR Photo send error: {e}")
                 # Fallback - send QR code info with manual payment option
@@ -750,14 +769,14 @@ Send transaction screenshot to @achal_parvat
 ⚠️ <b>QR image display में technical issue है</b>
 💡 <b>Manual payment method use करें</b>
 """
-                
+
                 try:
                     await callback.message.edit_text(fallback_text, reply_markup=get_upi_payment_menu(amount, transaction_id))
                 except:
                     await callback.message.answer(fallback_text, reply_markup=get_upi_payment_menu(amount, transaction_id))
         else:
             await callback.answer("❌ QR Code generation failed! Manual payment use करें.", show_alert=True)
-            
+
             # Show manual payment option
             manual_text = f"""
 💰 <b>Manual UPI Payment</b>
@@ -774,7 +793,7 @@ Send transaction screenshot to @achal_parvat
 
 ⚡ <b>QR generation में issue है, manual payment करें</b>
 """
-            
+
             try:
                 await callback.message.edit_text(manual_text, reply_markup=get_upi_payment_menu(amount, transaction_id))
             except:
@@ -841,10 +860,10 @@ Send transaction screenshot to @achal_parvat
         ])
 
         try:
-            await callback.message.edit_text(text, reply_markup=payment_keyboard)
+            await safe_edit_message(callback, text, payment_keyboard)
         except:
             await callback.message.answer(text, reply_markup=payment_keyboard)
-            
+
         await callback.answer("💡 UPI ID copied! ₹{amount:,} transfer करें")
 
     @main_dp.callback_query(F.data == "payment_bank")
@@ -871,7 +890,7 @@ Send transaction screenshot to @achal_parvat
 💡 <b>सबसे suitable method choose करें:</b>
 """
 
-        await callback.message.edit_text(text, reply_markup=get_bank_transfer_menu())
+        await safe_edit_message(callback, text, get_bank_transfer_menu())
         await callback.answer()
 
     @main_dp.callback_query(F.data == "payment_wallet")
@@ -901,7 +920,7 @@ Send transaction screenshot to @achal_parvat
 💡 <b>अपना preferred wallet चुनें:</b>
 """
 
-        await callback.message.edit_text(text, reply_markup=get_wallet_payment_menu())
+        await safe_edit_message(callback, text, get_wallet_payment_menu())
         await callback.answer()
 
 async def show_payment_methods(callback: CallbackQuery, amount: int):
@@ -910,7 +929,7 @@ async def show_payment_methods(callback: CallbackQuery, amount: int):
         return
 
     user_id = callback.from_user.id
-    
+
     # Store amount in user state
     if user_id not in user_state:
         user_state[user_id] = {"current_step": None, "data": {}}
@@ -962,7 +981,7 @@ async def show_payment_methods(callback: CallbackQuery, amount: int):
 💡 <b>UPI recommended for fastest & cheapest payments!</b>
 """
 
-    await callback.message.edit_text(text, reply_markup=get_payment_main_menu())
+    await safe_edit_message(callback, text, get_payment_main_menu())
 
 # Export function for main.py  
 def setup_payment_system(dp, users_data, user_state, format_currency):

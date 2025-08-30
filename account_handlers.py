@@ -5,9 +5,28 @@ All account-related functionality and handlers
 """
 
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from aiogram import F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+
+async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None) -> bool:
+    """Safely edit callback message with comprehensive error handling"""
+    if not callback.message:
+        return False
+    
+    # Check if message is accessible and has text
+    if not hasattr(callback.message, 'edit_text') or not hasattr(callback.message, 'text') or not callback.message.text:
+        return False
+        
+    try:
+        if reply_markup:
+            await callback.message.edit_text(text, reply_markup=reply_markup)
+        else:
+            await callback.message.edit_text(text)
+        return True
+    except Exception as e:
+        print(f"Error editing message: {e}")
+        return False
 
 # Global variables to be set by main.py
 dp = None
@@ -145,7 +164,7 @@ async def cb_my_account(callback: CallbackQuery):
 💡 <b>Choose an option below to manage your account:</b>
 """
 
-    await callback.message.edit_text(text, reply_markup=get_account_menu())
+    await safe_edit_message(callback, text, get_account_menu())
     await callback.answer()
 
 # ========== ORDER HISTORY ==========
@@ -212,7 +231,7 @@ async def cb_order_history(callback: CallbackQuery):
         if len(user_orders) > 5:
             text += f"\n\n📋 <b>और {len(user_orders)-5} orders...</b>"
 
-    await callback.message.edit_text(text, reply_markup=get_back_to_account_keyboard())
+    await safe_edit_message(callback, text, get_back_to_account_keyboard())
     await callback.answer()
 
 # ========== REFILL HISTORY ==========
@@ -237,7 +256,7 @@ async def cb_refill_history(callback: CallbackQuery):
 🔐 <b>All transactions are secure and encrypted</b>
 """
 
-    await callback.message.edit_text(text, reply_markup=get_back_to_account_keyboard())
+    await safe_edit_message(callback, text, get_back_to_account_keyboard())
     await callback.answer()
 
 # ========== API KEY MANAGEMENT ==========
@@ -285,7 +304,7 @@ async def cb_api_key(callback: CallbackQuery):
     if has_api:
         # User has API key - show management dashboard
         masked_key = f"{api_key[:8]}...{api_key[-8:]}" if len(api_key) > 16 else api_key
-        
+
         text = f"""
 🔑 <b>API Key Management Dashboard</b>
 
@@ -348,7 +367,7 @@ async def cb_api_key(callback: CallbackQuery):
 💡 <b>Ready to create your professional API key?</b>
 """
 
-    await callback.message.edit_text(text, reply_markup=get_api_management_menu(has_api))
+    await safe_edit_message(callback, text, get_api_management_menu(has_api))
     await callback.answer()
 
 async def cb_create_api_key(callback: CallbackQuery):
@@ -358,7 +377,7 @@ async def cb_create_api_key(callback: CallbackQuery):
 
     user_id = callback.from_user.id
     user_data = users_data.get(user_id, {})
-    
+
     # Check if user already has API key
     existing_api = user_data.get('api_key')
     if existing_api and existing_api != 'Not generated':
@@ -374,13 +393,13 @@ async def cb_create_api_key(callback: CallbackQuery):
 
 💡 <b>Security reason से एक account में केवल एक API key allow है</b>
 """
-        
+
         back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔍 View Current Key", callback_data="view_api_key")],
             [InlineKeyboardButton(text="⬅️ Back to API", callback_data="api_key")]
         ])
-        
-        await callback.message.edit_text(text, reply_markup=back_keyboard)
+
+        await safe_edit_message(callback, text, back_keyboard)
         await callback.answer()
         return
 
@@ -388,12 +407,12 @@ async def cb_create_api_key(callback: CallbackQuery):
     import secrets
     import string
     import time
-    
+
     # Generate secure API key
     timestamp = str(int(time.time()))
     random_part = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32))
     new_api_key = f"ISP_{timestamp}_{random_part}"
-    
+
     # Store API key
     users_data[user_id]['api_key'] = new_api_key
     users_data[user_id]['api_created_at'] = timestamp
@@ -445,7 +464,7 @@ async def cb_create_api_key(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=success_keyboard)
+    await safe_edit_message(callback, text, success_keyboard)
     await callback.answer("🎉 API Key successfully created!", show_alert=True)
 
 async def cb_view_api_key(callback: CallbackQuery):
@@ -465,13 +484,13 @@ async def cb_view_api_key(callback: CallbackQuery):
 
 💡 <b>Create करने के लिए "Create API Key" button click करें</b>
 """
-        
+
         back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🚀 Create API Key", callback_data="create_api_key")],
             [InlineKeyboardButton(text="⬅️ Back", callback_data="api_key")]
         ])
-        
-        await callback.message.edit_text(text, reply_markup=back_keyboard)
+
+        await safe_edit_message(callback, text, back_keyboard)
         await callback.answer()
         return
 
@@ -516,7 +535,7 @@ async def cb_view_api_key(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=view_keyboard)
+    await safe_edit_message(callback, text, view_keyboard)
     await callback.answer()
 
 async def cb_regenerate_api(callback: CallbackQuery):
@@ -551,7 +570,7 @@ async def cb_regenerate_api(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=confirm_keyboard)
+    await safe_edit_message(callback, text, confirm_keyboard)
     await callback.answer()
 
 async def cb_confirm_regenerate_api(callback: CallbackQuery):
@@ -560,16 +579,16 @@ async def cb_confirm_regenerate_api(callback: CallbackQuery):
         return
 
     user_id = callback.from_user.id
-    
+
     # Generate new API key
     import secrets
     import string
     import time
-    
+
     timestamp = str(int(time.time()))
     random_part = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32))
     new_api_key = f"ISP_{timestamp}_{random_part}"
-    
+
     # Store new API key
     old_key = users_data.get(user_id, {}).get('api_key', 'N/A')
     users_data[user_id]['api_key'] = new_api_key
@@ -613,7 +632,7 @@ async def cb_confirm_regenerate_api(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=success_keyboard)
+    await safe_edit_message(callback, text, success_keyboard)
     await callback.answer("🔄 API Key successfully regenerated!", show_alert=True)
 
 async def cb_delete_api_key(callback: CallbackQuery):
@@ -640,7 +659,7 @@ async def cb_delete_api_key(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Back to API", callback_data="api_key")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 async def cb_api_stats(callback: CallbackQuery):
@@ -677,7 +696,7 @@ async def cb_api_stats(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ API Dashboard", callback_data="api_key")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 async def cb_api_docs(callback: CallbackQuery):
@@ -744,7 +763,7 @@ curl -X POST \\
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=docs_keyboard)
+    await safe_edit_message(callback, text, docs_keyboard)
     await callback.answer()
 
 async def cb_api_security(callback: CallbackQuery):
@@ -794,7 +813,7 @@ async def cb_api_security(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=security_keyboard)
+    await safe_edit_message(callback, text, security_keyboard)
     await callback.answer()
 
 async def cb_test_api(callback: CallbackQuery):
@@ -812,13 +831,13 @@ async def cb_test_api(callback: CallbackQuery):
 
 🔑 <b>API testing के लिए पहले API key create करें</b>
 """
-        
+
         back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🚀 Create API Key", callback_data="create_api_key")],
             [InlineKeyboardButton(text="⬅️ Back", callback_data="api_key")]
         ])
-        
-        await callback.message.edit_text(text, reply_markup=back_keyboard)
+
+        await safe_edit_message(callback, text, back_keyboard)
         await callback.answer()
         return
 
@@ -864,7 +883,7 @@ https://api.indiasocialpanel.com/v1/balance</code>
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=test_keyboard)
+    await safe_edit_message(callback, text, test_keyboard)
     await callback.answer()
 
 async def cb_api_examples(callback: CallbackQuery):
@@ -953,7 +972,7 @@ curl_close($ch);
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=examples_keyboard)
+    await safe_edit_message(callback, text, examples_keyboard)
     await callback.answer()
 
 async def cb_copy_api_key(callback: CallbackQuery):
@@ -986,7 +1005,7 @@ async def cb_copy_api_key(callback: CallbackQuery):
             [InlineKeyboardButton(text="⬅️ API Dashboard", callback_data="api_key")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=back_keyboard)
+        await safe_edit_message(callback, text, back_keyboard)
         await callback.answer("✅ API Key copied to clipboard!", show_alert=True)
     else:
         await callback.answer("❌ No API key found!", show_alert=True)
@@ -1040,7 +1059,7 @@ async def cb_edit_profile(callback: CallbackQuery):
     profile_fields = ['full_name', 'phone_number', 'email', 'bio', 'location', 'birthday']
     completed_fields = sum(1 for field in profile_fields if user_data.get(field))
     completion_percentage = int((completed_fields / len(profile_fields)) * 100)
-    
+
     # Progress bar
     progress_filled = "█" * (completion_percentage // 10)
     progress_empty = "░" * (10 - (completion_percentage // 10))
@@ -1082,7 +1101,7 @@ async def cb_edit_profile(callback: CallbackQuery):
 💡 <b>Choose what you want to edit:</b>
 """
 
-    await callback.message.edit_text(text, reply_markup=get_edit_profile_menu())
+    await safe_edit_message(callback, text, get_edit_profile_menu())
     await callback.answer()
 
 # ========== INDIVIDUAL FIELD EDITING HANDLERS ==========
@@ -1093,11 +1112,11 @@ async def cb_edit_name(callback: CallbackQuery):
 
     user_id = callback.from_user.id
     current_name = users_data.get(user_id, {}).get('full_name', 'Not Set')
-    
+
     # Set user state for name editing
     if user_id not in user_state:
         user_state[user_id] = {"current_step": None, "data": {}}
-    
+
     user_state[user_id]["current_step"] = "editing_name"
 
     text = f"""
@@ -1120,7 +1139,7 @@ async def cb_edit_name(callback: CallbackQuery):
 🔙 <b>Send /cancel to go back</b>
 """
 
-    await callback.message.edit_text(text)
+    await safe_edit_message(callback, text)
     await callback.answer()
 
 async def cb_edit_phone(callback: CallbackQuery):
@@ -1130,11 +1149,11 @@ async def cb_edit_phone(callback: CallbackQuery):
 
     user_id = callback.from_user.id
     current_phone = users_data.get(user_id, {}).get('phone_number', 'Not Set')
-    
+
     # Set user state for phone editing
     if user_id not in user_state:
         user_state[user_id] = {"current_step": None, "data": {}}
-    
+
     user_state[user_id]["current_step"] = "editing_phone"
 
     text = f"""
@@ -1157,7 +1176,7 @@ async def cb_edit_phone(callback: CallbackQuery):
 🔙 <b>Send /cancel to go back</b>
 """
 
-    await callback.message.edit_text(text)
+    await safe_edit_message(callback, text)
     await callback.answer()
 
 async def cb_edit_email(callback: CallbackQuery):
@@ -1167,11 +1186,11 @@ async def cb_edit_email(callback: CallbackQuery):
 
     user_id = callback.from_user.id
     current_email = users_data.get(user_id, {}).get('email', 'Not Set')
-    
+
     # Set user state for email editing
     if user_id not in user_state:
         user_state[user_id] = {"current_step": None, "data": {}}
-    
+
     user_state[user_id]["current_step"] = "editing_email"
 
     text = f"""
@@ -1195,7 +1214,7 @@ async def cb_edit_email(callback: CallbackQuery):
 🔙 <b>Send /cancel to go back</b>
 """
 
-    await callback.message.edit_text(text)
+    await safe_edit_message(callback, text)
     await callback.answer()
 
 async def cb_edit_bio(callback: CallbackQuery):
@@ -1205,11 +1224,11 @@ async def cb_edit_bio(callback: CallbackQuery):
 
     user_id = callback.from_user.id
     current_bio = users_data.get(user_id, {}).get('bio', 'Not Set')
-    
+
     # Set user state for bio editing
     if user_id not in user_state:
         user_state[user_id] = {"current_step": None, "data": {}}
-    
+
     user_state[user_id]["current_step"] = "editing_bio"
 
     text = f"""
@@ -1234,7 +1253,7 @@ async def cb_edit_bio(callback: CallbackQuery):
 🔙 <b>Send /cancel to go back</b>
 """
 
-    await callback.message.edit_text(text)
+    await safe_edit_message(callback, text)
     await callback.answer()
 
 async def cb_edit_username(callback: CallbackQuery):
@@ -1244,7 +1263,7 @@ async def cb_edit_username(callback: CallbackQuery):
 
     user_id = callback.from_user.id
     telegram_username = callback.from_user.username or "Not Available"
-    
+
     text = f"""
 🎯 <b>Edit Username</b>
 
@@ -1280,7 +1299,7 @@ async def cb_edit_username(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 async def cb_edit_location(callback: CallbackQuery):
@@ -1290,11 +1309,11 @@ async def cb_edit_location(callback: CallbackQuery):
 
     user_id = callback.from_user.id
     current_location = users_data.get(user_id, {}).get('location', 'Not Set')
-    
+
     # Set user state for location editing
     if user_id not in user_state:
         user_state[user_id] = {"current_step": None, "data": {}}
-    
+
     user_state[user_id]["current_step"] = "editing_location"
 
     text = f"""
@@ -1319,7 +1338,7 @@ async def cb_edit_location(callback: CallbackQuery):
 🔙 <b>Send /cancel to go back</b>
 """
 
-    await callback.message.edit_text(text)
+    await safe_edit_message(callback, text)
     await callback.answer()
 
 async def cb_edit_birthday(callback: CallbackQuery):
@@ -1329,11 +1348,11 @@ async def cb_edit_birthday(callback: CallbackQuery):
 
     user_id = callback.from_user.id
     current_birthday = users_data.get(user_id, {}).get('birthday', 'Not Set')
-    
+
     # Set user state for birthday editing
     if user_id not in user_state:
         user_state[user_id] = {"current_step": None, "data": {}}
-    
+
     user_state[user_id]["current_step"] = "editing_birthday"
 
     text = f"""
@@ -1358,7 +1377,7 @@ async def cb_edit_birthday(callback: CallbackQuery):
 🔙 <b>Send /cancel to go back</b>
 """
 
-    await callback.message.edit_text(text)
+    await safe_edit_message(callback, text)
     await callback.answer()
 
 async def cb_edit_photo(callback: CallbackQuery):
@@ -1367,11 +1386,11 @@ async def cb_edit_photo(callback: CallbackQuery):
         return
 
     user_id = callback.from_user.id
-    
+
     # Set user state for photo editing
     if user_id not in user_state:
         user_state[user_id] = {"current_step": None, "data": {}}
-    
+
     user_state[user_id]["current_step"] = "editing_photo"
 
     text = f"""
@@ -1400,7 +1419,7 @@ Your photo is stored securely and used only for your profile display.
 🔙 <b>Send /cancel to go back</b>
 """
 
-    await callback.message.edit_text(text)
+    await safe_edit_message(callback, text)
     await callback.answer()
 
 async def cb_sync_telegram_data(callback: CallbackQuery):
@@ -1457,7 +1476,7 @@ async def cb_sync_telegram_data(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer("✅ Telegram data synced successfully!", show_alert=True)
 
 async def cb_preview_profile(callback: CallbackQuery):
@@ -1534,7 +1553,7 @@ async def cb_preview_profile(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 # ========== USER STATISTICS ==========
@@ -1572,7 +1591,7 @@ async def cb_user_stats(callback: CallbackQuery):
 🎯 <b>Activity Level:</b> {'Active' if total_orders > 0 else 'New User'}
 """
 
-    await callback.message.edit_text(text, reply_markup=get_back_to_account_keyboard())
+    await safe_edit_message(callback, text, get_back_to_account_keyboard())
     await callback.answer()
 
 # ========== NEW ACCOUNT FEATURES ==========
@@ -1608,7 +1627,7 @@ Advanced alert customization features are being developed!
         [InlineKeyboardButton(text="⬅️ My Account", callback_data="my_account")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 async def cb_language_settings(callback: CallbackQuery):
@@ -1646,7 +1665,7 @@ More regional languages coming soon!
         [InlineKeyboardButton(text="⬅️ My Account", callback_data="my_account")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 async def cb_account_preferences(callback: CallbackQuery):
@@ -1692,7 +1711,7 @@ async def cb_account_preferences(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ My Account", callback_data="my_account")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 async def cb_security_settings(callback: CallbackQuery):
@@ -1744,7 +1763,7 @@ async def cb_security_settings(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ My Account", callback_data="my_account")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 async def cb_payment_methods(callback: CallbackQuery):
@@ -1798,7 +1817,7 @@ async def cb_payment_methods(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ My Account", callback_data="my_account")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 # ========== LANGUAGE REGION HANDLERS ==========
@@ -1836,7 +1855,7 @@ async def cb_language_regions(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 async def cb_lang_region_indian(callback: CallbackQuery):
@@ -1888,7 +1907,7 @@ async def cb_lang_region_indian(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 async def cb_lang_region_international(callback: CallbackQuery):
@@ -1932,7 +1951,7 @@ async def cb_lang_region_international(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 async def cb_lang_region_european(callback: CallbackQuery):
@@ -1980,7 +1999,7 @@ async def cb_lang_region_european(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 async def cb_lang_region_asian(callback: CallbackQuery):
@@ -2024,7 +2043,7 @@ async def cb_lang_region_asian(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 async def cb_lang_region_middle_east(callback: CallbackQuery):
@@ -2064,7 +2083,7 @@ async def cb_lang_region_middle_east(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 async def cb_lang_region_americas(callback: CallbackQuery):
@@ -2104,7 +2123,7 @@ async def cb_lang_region_americas(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 async def cb_lang_region_popular(callback: CallbackQuery):
@@ -2148,7 +2167,7 @@ async def cb_lang_region_popular(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
 async def cb_language_select(callback: CallbackQuery):
@@ -2252,5 +2271,8 @@ async def cb_language_select(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer(f"✅ {selected_language} selected! Coming soon...", show_alert=True)
+
+# ========== MISSING CRITICAL HANDLERS ==========
+# Note: These handlers will be registered when dp is available

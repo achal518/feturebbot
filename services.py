@@ -5,8 +5,23 @@ India Social Panel - Services Management
 Professional Service Menu and Order Processing
 """
 
+from typing import Optional
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram import F
+
+async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None) -> bool:
+    """Safely edit callback message with type checking"""
+    if not callback.message or not hasattr(callback.message, 'edit_text'):
+        return False
+    try:
+        if reply_markup:
+            await callback.message.edit_text(text, reply_markup=reply_markup)
+        else:
+            await callback.message.edit_text(text)
+        return True
+    except Exception as e:
+        print(f"Error editing message: {e}")
+        return False
 
 # ========== SERVICE MENU BUILDERS ==========
 def get_services_main_menu() -> InlineKeyboardMarkup:
@@ -248,7 +263,7 @@ def register_service_handlers(dp, require_account):
                 [InlineKeyboardButton(text="⬅️ Back to Services", callback_data="new_order")]
             ])
 
-            await callback.message.edit_text(text, reply_markup=back_keyboard)
+            await safe_edit_message(callback, text, back_keyboard)
         else:
             text = f"""
 {service_name} <b>Services</b>
@@ -268,7 +283,7 @@ def register_service_handlers(dp, require_account):
 💡 <b>कृपया अपना package चुनें:</b>
 """
 
-            await callback.message.edit_text(text, reply_markup=get_service_packages(service))
+            await safe_edit_message(callback, text, get_service_packages(service))
 
         await callback.answer()
 
@@ -327,7 +342,7 @@ def register_service_handlers(dp, require_account):
                 [InlineKeyboardButton(text="⬅️ Back to Services", callback_data="new_order")]
             ])
 
-        await callback.message.edit_text(text, reply_markup=quality_keyboard)
+        await safe_edit_message(callback, text, quality_keyboard)
         await callback.answer()
 
     # Quality selection handlers
@@ -410,38 +425,12 @@ Expected format: platform_serviceid_quality
                 [InlineKeyboardButton(text="⬅️ Back to Services", callback_data="new_order")]
             ])
 
-        await callback.message.edit_text(text, reply_markup=order_keyboard)
+        await safe_edit_message(callback, text, order_keyboard)
         await callback.answer()
 
-# Function will be called from main.py to register handlers
-# -*- coding: utf-8 -*-
-"""
-Services Module - India Social Panel
-All service-related functionality and handlers
-"""
+# Clean duplicate section - reorganizing code
 
-from aiogram import F
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-
-def get_services_main_menu() -> InlineKeyboardMarkup:
-    """Build services platform selection menu"""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="📷 Instagram", callback_data="platform_instagram"),
-            InlineKeyboardButton(text="🎥 YouTube", callback_data="platform_youtube")
-        ],
-        [
-            InlineKeyboardButton(text="📘 Facebook", callback_data="platform_facebook"),
-            InlineKeyboardButton(text="🐦 Twitter", callback_data="platform_twitter")
-        ],
-        [
-            InlineKeyboardButton(text="💼 LinkedIn", callback_data="platform_linkedin"),
-            InlineKeyboardButton(text="🎵 TikTok", callback_data="platform_tiktok")
-        ],
-        [
-            InlineKeyboardButton(text="⬅️ Main Menu", callback_data="back_main")
-        ]
-    ])
+# Using original get_services_main_menu function - duplicate removed
 
 def get_instagram_services_menu() -> InlineKeyboardMarkup:
     """Build Instagram services menu"""
@@ -485,9 +474,9 @@ def get_youtube_services_menu() -> InlineKeyboardMarkup:
 
 def register_service_handlers(dp, require_account):
     """Register all service-related handlers"""
-    
+
     print("🔄 Registering service handlers...")
-    
+
     @dp.callback_query(F.data.startswith("platform_"))
     async def cb_platform_select(callback: CallbackQuery):
         """Handle platform selection"""
@@ -495,7 +484,7 @@ def register_service_handlers(dp, require_account):
             return
 
         platform = (callback.data or "").replace("platform_", "")
-        
+
         if platform == "instagram":
             text = """
 📷 <b>Instagram Services</b>
@@ -517,8 +506,8 @@ def register_service_handlers(dp, require_account):
 
 💡 <b>अपनी जरूरत की service चुनें:</b>
 """
-            await callback.message.edit_text(text, reply_markup=get_instagram_services_menu())
-            
+            await safe_edit_message(callback, text, get_instagram_services_menu())
+
         elif platform == "youtube":
             text = """
 🎥 <b>YouTube Services</b>
@@ -540,8 +529,8 @@ def register_service_handlers(dp, require_account):
 
 🎯 <b>YouTube के लिए service select करें:</b>
 """
-            await callback.message.edit_text(text, reply_markup=get_youtube_services_menu())
-            
+            await safe_edit_message(callback, text, get_youtube_services_menu())
+
         else:
             text = f"""
 🚀 <b>{platform.title()} Services</b>
@@ -558,12 +547,12 @@ def register_service_handlers(dp, require_account):
 
 📞 <b>For early access, contact:</b> @achal_parvat
 """
-            
+
             back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="⬅️ Back to Services", callback_data="new_order")]
             ])
-            
-            await callback.message.edit_text(text, reply_markup=back_keyboard)
+
+            await safe_edit_message(callback, text, back_keyboard)
 
         await callback.answer()
 
@@ -622,7 +611,7 @@ def register_service_handlers(dp, require_account):
 💡 <b>Paste the correct link और send करें</b>
 """
 
-        await callback.message.edit_text(text)
+        await safe_edit_message(callback, text)
         await callback.answer()
 
 # Export functions for main.py

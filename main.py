@@ -120,6 +120,35 @@ def format_time(timestamp: str) -> str:
     except:
         return "N/A"
 
+async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None) -> bool:
+    """Safely edit callback message with comprehensive error handling"""
+    if not callback.message:
+        return False
+    
+    # Check if message is accessible and has text
+    if not hasattr(callback.message, 'edit_text') or not hasattr(callback.message, 'text') or not callback.message.text:
+        return False
+        
+    try:
+        if reply_markup:
+            await callback.message.edit_text(text, reply_markup=reply_markup)
+        else:
+            await callback.message.edit_text(text)
+        return True
+    except Exception as e:
+        print(f"Error editing message: {e}")
+        # Try sending new message as fallback
+        try:
+            if hasattr(callback, 'message') and hasattr(callback.message, 'answer'):
+                if reply_markup:
+                    await callback.message.answer(text, reply_markup=reply_markup)
+                else:
+                    await callback.message.answer(text)
+                return True
+        except:
+            pass
+        return False
+
 def is_account_created(user_id: int) -> bool:
     """Check if user has completed account creation"""
     return users_data.get(user_id, {}).get("account_created", False)
@@ -395,7 +424,8 @@ async def cb_create_account(callback: CallbackQuery):
 💬 <b>Instruction:</b> अपना full name type करके भेज दें
 """
 
-    await callback.message.edit_text(text)
+    if hasattr(callback.message, 'edit_text'):
+        await safe_edit_message(callback, text)
     await callback.answer()
 
 # ========== ACCOUNT VERIFICATION DECORATOR ==========
@@ -419,8 +449,8 @@ def require_account(handler):
 ✅ <b>Account creation में सिर्फ 2 मिनट लगते हैं</b>
 """
 
-            if callback.message:
-                await callback.message.edit_text(text, reply_markup=get_account_creation_menu())
+            if callback.message and hasattr(callback.message, 'edit_text'):
+                await safe_edit_message(callback, text, get_account_creation_menu())
             await callback.answer()
             return
 
@@ -469,7 +499,7 @@ async def cb_new_order(callback: CallbackQuery):
 💡 <b>कृपया अपना platform चुनें:</b>
 """
 
-    await callback.message.edit_text(text, reply_markup=get_services_main_menu())
+    await safe_edit_message(callback, text, get_services_main_menu())
     await callback.answer()
 
 # Service handlers moved to services.py
@@ -516,7 +546,7 @@ async def cb_add_funds(callback: CallbackQuery):
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=amount_keyboard)
+    await safe_edit_message(callback, text, amount_keyboard)
     await callback.answer()
 
 
@@ -547,7 +577,7 @@ async def cb_services_tools(callback: CallbackQuery):
 💡 <b>अपनी जरूरत के अनुसार tool चुनें:</b>
 """
 
-    await callback.message.edit_text(text, reply_markup=get_services_tools_menu())
+    await safe_edit_message(callback, text, get_services_tools_menu())
     await callback.answer()
 
 @dp.callback_query(F.data == "offers_rewards")
@@ -583,7 +613,7 @@ async def cb_offers_rewards(callback: CallbackQuery):
 ✨ <b>अपना reward claim करें:</b>
 """
 
-    await callback.message.edit_text(text, reply_markup=get_offers_rewards_menu())
+    await safe_edit_message(callback, text, get_offers_rewards_menu())
     await callback.answer()
 
 @dp.callback_query(F.data == "admin_panel")
@@ -609,7 +639,7 @@ Unauthorized access attempts are logged and monitored.
             [InlineKeyboardButton(text="⬅️ Main Menu", callback_data="back_main")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=back_keyboard)
+        await safe_edit_message(callback, text, back_keyboard)
     else:
         # Admin menu will be implemented here
         text = """
@@ -628,7 +658,7 @@ Unauthorized access attempts are logged and monitored.
             [InlineKeyboardButton(text="⬅️ Main Menu", callback_data="back_main")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=back_keyboard)
+        await safe_edit_message(callback, text, back_keyboard)
 
     await callback.answer()
 
@@ -658,7 +688,7 @@ High-quality, affordable social media marketing services प्रदान क�
 🌍 <b>Serving:</b> Worldwide (India Focus)
 """
 
-    await callback.message.edit_text(text, reply_markup=get_contact_menu())
+    await safe_edit_message(callback, text, get_contact_menu())
     await callback.answer()
 
 @dp.callback_query(F.data == "owner_info")
@@ -691,7 +721,7 @@ Founder & CEO, India Social Panel
         [InlineKeyboardButton(text="⬅️ Back", callback_data="contact_about")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 # ========== NEW MISSING CALLBACK HANDLERS ==========
@@ -717,7 +747,7 @@ async def cb_service_list(callback: CallbackQuery):
 🔒 <b>100% Safe & Secure</b>
 """
 
-    await callback.message.edit_text(text, reply_markup=get_category_menu())
+    await safe_edit_message(callback, text, get_category_menu())
     await callback.answer()
 
 @dp.callback_query(F.data == "support_tickets")
@@ -739,7 +769,7 @@ async def cb_support_tickets(callback: CallbackQuery):
 💡 <b>आप क्या करना चाहते हैं?</b>
 """
 
-    await callback.message.edit_text(text, reply_markup=get_support_menu())
+    await safe_edit_message(callback, text, get_support_menu())
     await callback.answer()
 
 @dp.callback_query(F.data == "back_main")
@@ -755,7 +785,7 @@ async def cb_back_main(callback: CallbackQuery):
 💡 अपनी जरूरत के अनुसार option चुनें:
 """
 
-    await callback.message.edit_text(text, reply_markup=get_main_menu())
+    await safe_edit_message(callback, text, get_main_menu())
     await callback.answer()
 
 
@@ -802,7 +832,7 @@ async def cb_confirm_order(callback: CallbackQuery):
             [InlineKeyboardButton(text="⬅️ Back", callback_data="back_main")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=fund_keyboard)
+        await safe_edit_message(callback, text, fund_keyboard)
         await callback.answer()
         return
 
@@ -852,7 +882,7 @@ async def cb_confirm_order(callback: CallbackQuery):
         [InlineKeyboardButton(text="🏠 Main Menu", callback_data="back_main")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=success_keyboard)
+    await safe_edit_message(callback, text, success_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "cancel_order")
@@ -876,7 +906,7 @@ async def cb_cancel_order(callback: CallbackQuery):
 💡 <b>You can place a new order anytime!</b>
 """
 
-    await callback.message.edit_text(text, reply_markup=get_main_menu())
+    await safe_edit_message(callback, text, get_main_menu())
     await callback.answer()
 
 # ========== SERVICES & TOOLS HANDLERS ==========
@@ -917,7 +947,7 @@ async def cb_mass_order(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Services & Tools", callback_data="services_tools")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "subscriptions")
@@ -958,7 +988,7 @@ async def cb_subscriptions(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Services & Tools", callback_data="services_tools")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "profile_analyzer")
@@ -999,7 +1029,7 @@ async def cb_profile_analyzer(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Services & Tools", callback_data="services_tools")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "hashtag_generator")
@@ -1040,7 +1070,7 @@ async def cb_hashtag_generator(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Services & Tools", callback_data="services_tools")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "free_trial")
@@ -1082,7 +1112,7 @@ async def cb_free_trial(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Services & Tools", callback_data="services_tools")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=trial_keyboard)
+    await safe_edit_message(callback, text, trial_keyboard)
     await callback.answer()
 
 # ========== CONTACT & ABOUT SUB-MENU HANDLERS ==========
@@ -1113,7 +1143,7 @@ Coming Soon...
         [InlineKeyboardButton(text="⬅️ Back", callback_data="contact_about")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "support_channel")
@@ -1149,7 +1179,7 @@ async def cb_support_channel(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Back", callback_data="contact_about")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=join_keyboard)
+    await safe_edit_message(callback, text, join_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "terms_service")
@@ -1190,7 +1220,7 @@ async def cb_terms_service(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Back", callback_data="contact_about")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 # ========== OFFERS & REWARDS HANDLERS ==========
@@ -1232,7 +1262,7 @@ async def cb_coupon_redeem(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Offers & Rewards", callback_data="offers_rewards")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "partner_program")
@@ -1273,7 +1303,7 @@ async def cb_partner_program(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Offers & Rewards", callback_data="offers_rewards")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "loyalty_program")
@@ -1314,7 +1344,7 @@ async def cb_loyalty_program(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Offers & Rewards", callback_data="offers_rewards")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "daily_reward")
@@ -1356,7 +1386,7 @@ async def cb_daily_reward(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Offers & Rewards", callback_data="offers_rewards")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "leaderboard")
@@ -1397,7 +1427,7 @@ async def cb_leaderboard(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Offers & Rewards", callback_data="offers_rewards")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "community_polls")
@@ -1437,7 +1467,7 @@ async def cb_community_polls(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Offers & Rewards", callback_data="offers_rewards")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 # ========== AI SUPPORT & CONTACT ADMIN HANDLERS ==========
@@ -1482,7 +1512,7 @@ async def cb_ai_support(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Back", callback_data="contact_about")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "contact_admin")
@@ -1535,7 +1565,7 @@ For VIP customers and partners, we provide priority support with dedicated accou
         ]
     ])
 
-    await callback.message.edit_text(text, reply_markup=admin_keyboard)
+    await safe_edit_message(callback, text, admin_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "create_ticket")
@@ -1569,7 +1599,7 @@ async def cb_create_ticket(callback: CallbackQuery):
 💡 <b>Clear subject likhenge to fast response milega!</b>
 """
 
-    await callback.message.edit_text(text)
+    await safe_edit_message(callback, text)
     await callback.answer()
 
 @dp.callback_query(F.data == "view_tickets")
@@ -1609,7 +1639,7 @@ async def cb_view_tickets(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Support Menu", callback_data="support_tickets")]
     ])
 
-    await callback.message.edit_text(text, reply_markup=back_keyboard)
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 # ========== INPUT HANDLERS ==========
@@ -2239,7 +2269,7 @@ async def on_startup(bot: Bot) -> None:
         await bot.set_my_commands(commands)
 
         # Only set webhook if BASE_WEBHOOK_URL is provided
-        if BASE_WEBHOOK_URL:
+        if BASE_WEBHOOK_URL and WEBHOOK_URL:
             await bot.set_webhook(url=WEBHOOK_URL, secret_token=WEBHOOK_SECRET)
             print(f"✅ India Social Panel Bot started with webhook: {WEBHOOK_URL}")
         else:
@@ -2298,3 +2328,591 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# ========== MISSING PAYMENT & NAVIGATION HANDLERS ==========
+
+@dp.callback_query(F.data == "payment_upi")
+async def handle_payment_upi(callback: CallbackQuery):
+    """Handle UPI payment selection"""
+    try:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🟢 PhonePe", callback_data="upi_phonepe"),
+                InlineKeyboardButton(text="🔴 Google Pay", callback_data="upi_gpay")
+            ],
+            [
+                InlineKeyboardButton(text="💙 Paytm", callback_data="upi_paytm"),
+                InlineKeyboardButton(text="🟠 FreeCharge", callback_data="upi_freecharge")
+            ],
+            [
+                InlineKeyboardButton(text="🔵 JioMoney", callback_data="upi_jio"),
+                InlineKeyboardButton(text="🟡 Amazon Pay", callback_data="upi_amazon")
+            ],
+            [
+                InlineKeyboardButton(text="💡 UPI Guide", callback_data="upi_guide"),
+                InlineKeyboardButton(text="⬅️ Back to Payment", callback_data="add_funds")
+            ]
+        ])
+        
+        await safe_edit_message(
+            callback,
+            "📱 **UPI Payment**\n\n"
+            "Choose your preferred UPI app:\n\n"
+            "💡 All UPI payments are instant and secure!",
+            keyboard
+        )
+        
+    except Exception as e:
+        print(f"UPI payment error: {e}")
+        await callback.answer("❌ Error loading UPI options", show_alert=True)
+
+@dp.callback_query(F.data == "payment_wallet")
+async def handle_payment_wallet(callback: CallbackQuery):
+    """Handle wallet payment selection"""
+    try:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="💙 Paytm", callback_data="wallet_paytm"),
+                InlineKeyboardButton(text="🟢 PhonePe", callback_data="wallet_phonepe")
+            ],
+            [
+                InlineKeyboardButton(text="🔴 Google Pay", callback_data="wallet_gpay"),
+                InlineKeyboardButton(text="🟠 FreeCharge", callback_data="wallet_freecharge")
+            ],
+            [
+                InlineKeyboardButton(text="🔵 JioMoney", callback_data="wallet_jio"),
+                InlineKeyboardButton(text="🟡 Amazon Pay", callback_data="wallet_amazon")
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ Back to Payment", callback_data="add_funds")
+            ]
+        ])
+        
+        await safe_edit_message(
+            callback,
+            "💸 **Digital Wallets**\n\n"
+            "Select your wallet:",
+            keyboard
+        )
+        
+    except Exception as e:
+        print(f"Wallet payment error: {e}")
+        await callback.answer("❌ Error loading wallet options", show_alert=True)
+
+@dp.callback_query(F.data == "payment_bank")
+async def handle_payment_bank(callback: CallbackQuery):
+    """Handle bank payment selection"""
+    try:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🏦 Net Banking", callback_data="bank_netbanking"),
+                InlineKeyboardButton(text="💳 IMPS Transfer", callback_data="bank_imps")
+            ],
+            [
+                InlineKeyboardButton(text="💸 NEFT Transfer", callback_data="bank_neft"),
+                InlineKeyboardButton(text="⚡ RTGS Transfer", callback_data="bank_rtgs")
+            ],
+            [
+                InlineKeyboardButton(text="💡 Transfer Guide", callback_data="bank_guide"),
+                InlineKeyboardButton(text="⬅️ Back to Payment", callback_data="add_funds")
+            ]
+        ])
+        
+        await safe_edit_message(
+            callback,
+            "🏦 **Bank Transfer**\n\n"
+            "Choose transfer method:\n\n"
+            "⚡ IMPS/NEFT: Instant to 2 hours\n"
+            "🏦 Net Banking: Direct bank transfer\n"
+            "💳 RTGS: For amounts ₹2 lakh+",
+            keyboard
+        )
+        
+    except Exception as e:
+        print(f"Bank payment error: {e}")
+        await callback.answer("❌ Error loading bank options", show_alert=True)
+
+@dp.callback_query(F.data == "payment_card")
+async def handle_payment_card(callback: CallbackQuery):
+    """Handle card payment selection"""
+    try:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="💳 Debit Card", callback_data="card_debit"),
+                InlineKeyboardButton(text="💎 Credit Card", callback_data="card_credit")
+            ],
+            [
+                InlineKeyboardButton(text="🔐 Secure Payment", callback_data="card_security"),
+                InlineKeyboardButton(text="💡 Payment Guide", callback_data="card_guide")
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ Back to Payment", callback_data="add_funds")
+            ]
+        ])
+        
+        await safe_edit_message(
+            callback,
+            "💳 **Card Payment**\n\n"
+            "Secure card payments with encryption:\n\n"
+            "✅ 256-bit SSL encryption\n"
+            "✅ PCI DSS compliant\n"
+            "✅ Instant processing",
+            keyboard
+        )
+        
+    except Exception as e:
+        print(f"Card payment error: {e}")
+        await callback.answer("❌ Error loading card options", show_alert=True)
+
+@dp.callback_query(F.data.startswith("amount_"))
+async def handle_amount_selection(callback: CallbackQuery):
+    """Handle amount selection"""
+    try:
+        amount_str = callback.data.replace("amount_", "")
+        if amount_str == "custom":
+            await callback.answer("💬 Please type custom amount in chat: /amount 500", show_alert=True)
+            return
+        
+        amount = int(amount_str)
+        user_id = callback.from_user.id
+        
+        # Store selected amount
+        if user_id not in users_data:
+            users_data[user_id] = {}
+        users_data[user_id]["selected_amount"] = amount
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📱 UPI Payment", callback_data="payment_upi"),
+                InlineKeyboardButton(text="💸 Digital Wallets", callback_data="payment_wallet")
+            ],
+            [
+                InlineKeyboardButton(text="🏦 Bank Transfer", callback_data="payment_bank"),
+                InlineKeyboardButton(text="💳 Card Payment", callback_data="payment_card")
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ Back to Amounts", callback_data="add_funds")
+            ]
+        ])
+        
+        await safe_edit_message(
+            callback,
+            f"💰 **Amount Selected: ₹{amount}**\n\n"
+            f"Choose your payment method:\n\n"
+            f"🔥 Most Popular: UPI Payment\n"
+            f"⚡ Fastest: Digital Wallets\n"
+            f"🔐 Most Secure: Bank Transfer",
+            keyboard
+        )
+        
+    except Exception as e:
+        print(f"Amount selection error: {e}")
+        await callback.answer("❌ Error processing amount", show_alert=True)
+
+@dp.callback_query(F.data.startswith("edit_"))
+async def handle_edit_profile_options(callback: CallbackQuery):
+    """Handle profile editing options"""
+    try:
+        edit_type = callback.data.replace("edit_", "")
+        
+        if edit_type == "name":
+            await callback.answer("💬 Please type: /name Your New Name", show_alert=True)
+        elif edit_type == "email":
+            await callback.answer("📧 Please type: /email your@email.com", show_alert=True)
+        elif edit_type == "phone":
+            await callback.answer("📱 Please type: /phone +91xxxxxxxxxx", show_alert=True)
+        elif edit_type == "bio":
+            await callback.answer("💼 Please type: /bio Your bio here", show_alert=True)
+        elif edit_type == "username":
+            await callback.answer("🎯 Please type: /username newusername", show_alert=True)
+        else:
+            await callback.answer("⚠️ Coming soon!", show_alert=True)
+            
+    except Exception as e:
+        print(f"Edit profile error: {e}")
+        await callback.answer("❌ Error processing edit request", show_alert=True)
+
+
+# ========== MISSING SERVICE & NAVIGATION HANDLERS ==========
+
+@dp.callback_query(F.data.startswith("cat_"))
+async def handle_service_category_selection(callback: CallbackQuery):
+    """Handle service category selection"""
+    try:
+        category = callback.data.replace("cat_", "")
+        
+        category_names = {
+            "instagram": "📷 Instagram",
+            "youtube": "🎥 YouTube", 
+            "facebook": "📘 Facebook",
+            "twitter": "🐦 Twitter",
+            "tiktok": "🎵 TikTok",
+            "linkedin": "💼 LinkedIn",
+            "whatsapp": "💬 WhatsApp"
+        }
+        
+        category_name = category_names.get(category, category.capitalize())
+        
+        # Sample services for the category
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="👥 Followers", callback_data=f"service_{category}_followers"),
+                InlineKeyboardButton(text="❤️ Likes", callback_data=f"service_{category}_likes")
+            ],
+            [
+                InlineKeyboardButton(text="👁️ Views", callback_data=f"service_{category}_views"),
+                InlineKeyboardButton(text="💬 Comments", callback_data=f"service_{category}_comments")
+            ],
+            [
+                InlineKeyboardButton(text="👎 Dislikes", callback_data=f"service_{category}_dislikes"),
+                InlineKeyboardButton(text="⭐ Popular", callback_data=f"service_{category}_popular")
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ Back to Services", callback_data="service_list")
+            ]
+        ])
+        
+        await safe_edit_message(
+            callback,
+            f"{category_name} **Services**\n\n"
+            f"🎯 High Quality Services\n"
+            f"⚡ Fast Delivery\n" 
+            f"🔐 Safe & Secure\n"
+            f"💰 Best Prices\n\n"
+            f"Choose service type:",
+            keyboard
+        )
+        
+    except Exception as e:
+        print(f"Category selection error: {e}")
+        await callback.answer("❌ Error loading category", show_alert=True)
+
+@dp.callback_query(F.data.startswith("quality_"))
+async def handle_quality_selection(callback: CallbackQuery):
+    """Handle quality selection"""  
+    try:
+        quality_type = callback.data.replace("quality_", "")
+        
+        quality_info = {
+            "high": {"name": "🔥 High Quality", "price": "₹50-200", "desc": "Premium accounts, slow delivery"},
+            "medium": {"name": "⚡ Medium Quality", "price": "₹30-100", "desc": "Good accounts, fast delivery"},
+            "basic": {"name": "💰 Basic Quality", "price": "₹10-50", "desc": "Standard accounts, instant delivery"}
+        }
+        
+        info = quality_info.get(quality_type, quality_info["medium"])
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="➡️ Continue Order", callback_data=f"continue_order_{quality_type}"),
+                InlineKeyboardButton(text="💡 Quality Info", callback_data=f"quality_info_{quality_type}")
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ Back to Qualities", callback_data="back_qualities")
+            ]
+        ])
+        
+        await safe_edit_message(
+            callback,
+            f"{info['name']} **Selected**\n\n"
+            f"💰 Price Range: {info['price']}\n"
+            f"📝 Description: {info['desc']}\n\n"
+            f"✅ Ready to proceed with order?",
+            keyboard
+        )
+        
+    except Exception as e:
+        print(f"Quality selection error: {e}")
+        await callback.answer("❌ Error processing quality selection", show_alert=True)
+
+@dp.callback_query(F.data.startswith("continue_order_"))
+async def handle_continue_order(callback: CallbackQuery):
+    """Handle continue order after quality selection"""
+    try:
+        quality = callback.data.replace("continue_order_", "")
+        user_id = callback.from_user.id
+        
+        # Store order info
+        if user_id not in users_data:
+            users_data[user_id] = {}
+        users_data[user_id]["pending_order"] = {"quality": quality}
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Confirm Order", callback_data="confirm_order"),
+                InlineKeyboardButton(text="❌ Cancel", callback_data="cancel_order")
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ Back to Menu", callback_data="back_main")
+            ]
+        ])
+        
+        await safe_edit_message(
+            callback,
+            f"📦 **Order Summary**\n\n"
+            f"Quality: {quality.capitalize()}\n"
+            f"Status: Ready to place\n\n"
+            f"💰 Final price will be calculated based on quantity\n\n"
+            f"Confirm your order?",
+            keyboard
+        )
+        
+    except Exception as e:
+        print(f"Continue order error: {e}")
+        await callback.answer("❌ Error processing order", show_alert=True)
+
+@dp.callback_query(F.data.startswith("platform_"))
+async def handle_platform_selection(callback: CallbackQuery):
+    """Handle platform selection"""
+    try:
+        platform = callback.data.replace("platform_", "")
+        
+        platform_info = {
+            "instagram": {"emoji": "📷", "name": "Instagram", "services": "Followers, Likes, Views, Comments"},
+            "youtube": {"emoji": "🎥", "name": "YouTube", "services": "Subscribers, Views, Likes, Comments"},
+            "facebook": {"emoji": "📘", "name": "Facebook", "services": "Followers, Likes, Shares, Comments"},
+            "twitter": {"emoji": "🐦", "name": "Twitter", "services": "Followers, Likes, Retweets, Views"},
+            "tiktok": {"emoji": "🎵", "name": "TikTok", "services": "Followers, Likes, Views, Shares"},
+            "linkedin": {"emoji": "💼", "name": "LinkedIn", "services": "Connections, Likes, Views, Shares"}
+        }
+        
+        info = platform_info.get(platform, {"emoji": "🌟", "name": platform.capitalize(), "services": "Various services"})
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="👥 Followers", callback_data=f"service_{platform}_followers"),
+                InlineKeyboardButton(text="❤️ Likes", callback_data=f"service_{platform}_likes")
+            ],
+            [
+                InlineKeyboardButton(text="👁️ Views", callback_data=f"service_{platform}_views"),
+                InlineKeyboardButton(text="💬 Comments", callback_data=f"service_{platform}_comments")
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ Back to Platforms", callback_data="service_list")
+            ]
+        ])
+        
+        await safe_edit_message(
+            callback,
+            f"{info['emoji']} **{info['name']} Services**\n\n"
+            f"Available: {info['services']}\n\n"
+            f"🎯 High Quality\n"
+            f"⚡ Fast Delivery\n"
+            f"🔐 Safe & Secure\n\n"
+            f"Choose service:",
+            keyboard
+        )
+        
+    except Exception as e:
+        print(f"Platform selection error: {e}")
+        await callback.answer("❌ Error loading platform services", show_alert=True)
+
+
+# ========== REMAINING CRITICAL HANDLERS ==========
+
+@dp.callback_query(F.data.startswith("select_lang_"))
+async def handle_language_selection(callback: CallbackQuery):
+    """Handle language selection"""
+    try:
+        lang_code = callback.data.replace("select_lang_", "")
+        user_id = callback.from_user.id
+        
+        # Store user language preference
+        if user_id not in users_data:
+            users_data[user_id] = {}
+        users_data[user_id]["language"] = lang_code
+        
+        lang_names = {
+            "hindi": "🇮🇳 हिंदी (Hindi)",
+            "english": "🇬🇧 English",
+            "chinese": "🇨🇳 中文 (Chinese)",
+            "spanish": "🇪🇸 Español",
+            "french": "🇫🇷 Français",
+            "german": "🇩🇪 Deutsch",
+            "russian": "🇷🇺 Русский",
+            "arabic": "🇸🇦 العربية"
+        }
+        
+        selected_lang = lang_names.get(lang_code, "Selected Language")
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🏠 Main Menu", callback_data="back_main"),
+                InlineKeyboardButton(text="👤 My Account", callback_data="my_account")
+            ]
+        ])
+        
+        await safe_edit_message(
+            callback,
+            f"✅ **Language Updated!**\n\n"
+            f"🌐 Selected: {selected_lang}\n\n"
+            f"🚀 Language support is being improved!\n"
+            f"📢 You'll get notified when full translation is ready.\n\n"
+            f"🙏 Thank you for choosing India Social Panel!",
+            keyboard
+        )
+        
+    except Exception as e:
+        print(f"Language selection error: {e}")
+        await callback.answer("❌ Error updating language", show_alert=True)
+
+@dp.callback_query(F.data.startswith("wallet_"))
+async def handle_specific_wallet(callback: CallbackQuery):
+    """Handle specific wallet selection"""
+    try:
+        wallet = callback.data.replace("wallet_", "")
+        user_id = callback.from_user.id
+        amount = users_data.get(user_id, {}).get("selected_amount", 100)
+        
+        wallet_info = {
+            "paytm": {"name": "💙 Paytm", "fee": "₹0"},
+            "phonepe": {"name": "🟢 PhonePe", "fee": "₹0"},
+            "gpay": {"name": "🔴 Google Pay", "fee": "₹0"},
+            "freecharge": {"name": "🟠 FreeCharge", "fee": "₹0"},
+            "jio": {"name": "🔵 JioMoney", "fee": "₹2"},
+            "amazon": {"name": "🟡 Amazon Pay", "fee": "₹0"}
+        }
+        
+        info = wallet_info.get(wallet, {"name": wallet.capitalize(), "fee": "₹0"})
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📊 Generate QR", callback_data=f"qr_generate_{wallet}_{amount}"),
+                InlineKeyboardButton(text="📋 Copy UPI ID", callback_data=f"copy_upi_{wallet}")
+            ],
+            [
+                InlineKeyboardButton(text="📱 Open UPI App", callback_data=f"open_upi_{wallet}_{amount}"),
+                InlineKeyboardButton(text="✅ Payment Done", callback_data=f"payment_done_{amount}")
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ Back to Wallets", callback_data="payment_wallet")
+            ]
+        ])
+        
+        await safe_edit_message(
+            callback,
+            f"{info['name']} **Payment**\n\n"
+            f"💰 Amount: ₹{amount}\n"
+            f"💳 Processing Fee: {info['fee']}\n"
+            f"⚡ Processing: Instant\n\n"
+            f"Choose payment option:",
+            keyboard
+        )
+        
+    except Exception as e:
+        print(f"Wallet selection error: {e}")
+        await callback.answer("❌ Error processing wallet", show_alert=True)
+
+@dp.callback_query(F.data.startswith("upi_"))
+async def handle_specific_upi(callback: CallbackQuery):
+    """Handle specific UPI app selection"""
+    try:
+        if callback.data.startswith("upi_guide"):
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="⬅️ Back to UPI", callback_data="payment_upi")]
+            ])
+            
+            await safe_edit_message(
+                callback,
+                "💡 **UPI Payment Guide**\n\n"
+                "📱 **How to pay:**\n"
+                "1. Select your UPI app\n"
+                "2. Scan QR code OR copy UPI ID\n"
+                "3. Enter amount and complete payment\n"
+                "4. Click 'Payment Done' button\n\n"
+                "⚡ **Payment is instant!**\n"
+                "🔐 **100% Safe & Secure**",
+                keyboard
+            )
+            return
+            
+        upi_app = callback.data.replace("upi_", "")
+        user_id = callback.from_user.id
+        amount = users_data.get(user_id, {}).get("selected_amount", 100)
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📊 Generate QR", callback_data=f"qr_generate_{upi_app}_{amount}"),
+                InlineKeyboardButton(text="📋 Copy UPI ID", callback_data=f"copy_upi_{upi_app}")
+            ],
+            [
+                InlineKeyboardButton(text="📱 Open UPI App", callback_data=f"open_upi_{upi_app}_{amount}"),
+                InlineKeyboardButton(text="✅ Payment Done", callback_data=f"payment_done_{amount}")
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ Back to UPI", callback_data="payment_upi")
+            ]
+        ])
+        
+        await safe_edit_message(
+            callback,
+            f"📱 **{upi_app.upper()} Payment**\n\n"
+            f"💰 Amount: ₹{amount}\n"
+            f"⚡ Processing: Instant\n"
+            f"🔐 Safe & Secure\n\n"
+            f"Choose payment method:",
+            keyboard
+        )
+        
+    except Exception as e:
+        print(f"UPI selection error: {e}")
+        await callback.answer("❌ Error processing UPI", show_alert=True)
+
+@dp.callback_query(F.data.startswith("bank_"))
+async def handle_bank_options(callback: CallbackQuery):
+    """Handle bank transfer options"""
+    try:
+        bank_option = callback.data.replace("bank_", "")
+        
+        if bank_option == "guide":
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="⬅️ Back to Bank Transfer", callback_data="payment_bank")]
+            ])
+            
+            await safe_edit_message(
+                callback,
+                "💡 **Bank Transfer Guide**\n\n"
+                "🏦 **NEFT Transfer:**\n"
+                "• Processing: 1-2 hours\n"
+                "• Available: 24/7\n"
+                "• Charges: As per bank\n\n"
+                "⚡ **IMPS Transfer:**\n"
+                "• Processing: Instant\n"
+                "• Available: 24/7\n"
+                "• Limit: ₹5 lakh/day\n\n"
+                "💳 **RTGS Transfer:**\n"
+                "• Processing: Instant\n"
+                "• Minimum: ₹2 lakh\n"
+                "• Time: 9 AM - 4:30 PM",
+                keyboard
+            )
+            return
+            
+        # Handle other bank options
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📋 Copy Bank Details", callback_data="copy_bank_details"),
+                InlineKeyboardButton(text="💡 Transfer Guide", callback_data="bank_guide")
+            ],
+            [
+                InlineKeyboardButton(text="✅ Transfer Done", callback_data="transfer_done"),
+                InlineKeyboardButton(text="⬅️ Back to Bank", callback_data="payment_bank")
+            ]
+        ])
+        
+        await safe_edit_message(
+            callback,
+            f"🏦 **{bank_option.upper().replace('_', ' ')} Transfer**\n\n"
+            f"Transfer money to our bank account:\n\n"
+            f"🏦 **Account Details:**\n"
+            f"Bank: State Bank of India\n"
+            f"A/C: 1234567890123\n"
+            f"IFSC: SBIN0001234\n"
+            f"Name: India Social Panel\n\n"
+            f"💡 Use your User ID as reference: {callback.from_user.id}",
+            keyboard
+        )
+        
+    except Exception as e:
+        print(f"Bank options error: {e}")
+        await callback.answer("❌ Error loading bank options", show_alert=True)
+

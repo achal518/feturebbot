@@ -811,7 +811,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
     """
     Get dynamic package configuration based on platform, service and quality
     """
-    
+
     # Base configurations for different qualities
     quality_multipliers = {
         "premium": {"rate_mult": 3.0, "retention": "95%+", "speed": "0-2 hours"},
@@ -820,7 +820,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
         "standard": {"rate_mult": 1.0, "retention": "60-75%", "speed": "4-12 hours"},
         "basic": {"rate_mult": 0.7, "retention": "50-65%", "speed": "6-24 hours"}
     }
-    
+
     # Base rates per platform (per unit in rupees)
     base_rates = {
         "instagram": 0.50,
@@ -832,7 +832,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
         "twitter": 0.55,
         "linkedin": 1.50
     }
-    
+
     # Service type rates (multiplier on base rate)
     service_multipliers = {
         "1001": 1.0,  # followers
@@ -847,7 +847,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
         "1010": 1.8,  # auto likes
         "1011": 1.1,  # poll votes
         "1012": 0.35, # reel views
-        
+
         "2001": 1.2,  # fb page likes
         "2002": 0.7,  # fb post likes
         "2003": 1.0,  # fb group members
@@ -860,7 +860,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
         "2010": 4.0,  # fb rating
         "2011": 1.4,  # fb event interested
         "2012": 3.5,  # fb reviews
-        
+
         "3001": 2.0,  # yt subscribers
         "3002": 0.15, # yt views
         "3003": 0.8,  # yt likes
@@ -873,7 +873,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
         "3010": 0.2,  # yt shorts views
         "3011": 1.5,  # yt live views
         "3012": 1.0,  # yt community likes
-        
+
         "4001": 0.8,  # tg channel members
         "4002": 0.2,  # tg post views
         "4003": 0.9,  # tg group members
@@ -884,7 +884,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
         "4008": 1.2,  # tg poll votes
         "4009": 0.5,  # tg story views
         "4010": 3.0,  # tg premium members
-        
+
         "5001": 1.5,  # wa group members
         "5002": 1.2,  # wa channel subs
         "5003": 0.6,  # wa status views
@@ -893,7 +893,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
         "5006": 1.0,  # wa broadcast
         "5007": 0.8,  # wa status reactions
         "5008": 2.0,  # wa business growth
-        
+
         "6001": 1.0,  # tt followers
         "6002": 0.5,  # tt likes
         "6003": 0.25, # tt views
@@ -904,7 +904,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
         "6008": 2.0,  # tt sound usage
         "6009": 0.4,  # tt story views
         "6010": 0.7,  # tt duet views
-        
+
         "7001": 1.2,  # tw followers
         "7002": 0.6,  # tw likes
         "7003": 1.0,  # tw retweets
@@ -915,7 +915,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
         "7008": 0.8,  # tw bookmarks
         "7009": 1.1,  # tw poll votes
         "7010": 0.5,  # tw video views
-        
+
         "8001": 2.0,  # li followers
         "8002": 1.2,  # li post likes
         "8003": 3.0,  # li comments
@@ -927,14 +927,14 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
         "8009": 5.0,  # li recommendations
         "8010": 3.5   # li connections
     }
-    
+
     # Calculate final rate
     base_rate = base_rates.get(platform, 0.50)
     service_mult = service_multipliers.get(service_id, 1.0)
     quality_mult = quality_multipliers.get(quality, quality_multipliers["standard"])["rate_mult"]
-    
+
     final_rate = base_rate * service_mult * quality_mult
-    
+
     # Generate quantities based on service type
     if service_id in ["1001", "2001", "3001", "4001", "7001", "8001"]:  # Followers/Subscribers
         min_qty = 100
@@ -948,7 +948,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
     else:  # Other services
         min_qty = 10
         max_qty = 25000
-    
+
     # Platform name mapping
     platform_names = {
         "instagram": "📷 Instagram",
@@ -960,7 +960,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
         "twitter": "🐦 Twitter",
         "linkedin": "💼 LinkedIn"
     }
-    
+
     # Service name mapping
     service_names = {
         "1001": "👥 Followers", "1002": "❤️ Likes", "1003": "👁️ Views",
@@ -972,7 +972,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
         "7001": "👥 Followers", "7002": "❤️ Likes", "7003": "🔄 Retweets",
         "8001": "👥 Followers", "8002": "❤️ Post Likes", "8003": "💬 Comments"
     }
-    
+
     # Quality descriptions
     quality_descriptions = {
         "premium": "💎 Premium Quality - सबसे बेहतरीन results",
@@ -981,12 +981,12 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
         "standard": "✅ Standard Quality - सामान्य results",
         "basic": "💰 Basic Quality - बुनियादी results"
     }
-    
+
     platform_name = platform_names.get(platform, platform.title())
     service_name = service_names.get(service_id, f"Service {service_id}")
     quality_desc = quality_descriptions.get(quality, quality.title())
     quality_info = quality_multipliers.get(quality, quality_multipliers["standard"])
-    
+
     # Generate description
     description = f"""
 {platform_name} <b>{service_name}</b>
@@ -1017,7 +1017,7 @@ def get_package_config(platform: str, service_id: str, quality: str) -> dict:
 • Social proof enhancement
 • Marketing campaigns
 """
-    
+
     return {
         "platform": platform,
         "service_id": service_id,

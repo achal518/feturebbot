@@ -5,42 +5,106 @@ All account-related functionality and handlers
 """
 
 import time
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from aiogram import F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+import pytz
+
+def format_join_date_with_timezone(join_date_str: str, user_timezone: str = "Asia/Kolkata") -> str:
+    """Format join date with timezone information"""
+    try:
+        # Parse the ISO format date
+        if join_date_str:
+            join_dt = datetime.fromisoformat(join_date_str.replace('Z', '+00:00'))
+
+            # Convert to user's timezone (default: India)
+            user_tz = pytz.timezone(user_timezone)
+            local_dt = join_dt.astimezone(user_tz)
+
+            # Format with timezone info
+            formatted_date = local_dt.strftime("%d %B %Y")
+            formatted_time = local_dt.strftime("%I:%M %p")
+            timezone_name = local_dt.strftime("%Z")
+
+            return f"{formatted_date} at {formatted_time} {timezone_name}"
+        return "Unknown"
+    except Exception as e:
+        print(f"Error formatting join date: {e}")
+        return join_date_str or "Unknown"
+
+def get_user_timezone_info(user_language: str = "en") -> dict:
+    """Get timezone information based on user preferences"""
+    timezone_map = {
+        "hi": "Asia/Kolkata",  # Hindi - India
+        "en": "Asia/Kolkata",  # English - Default to India
+        "bn": "Asia/Kolkata",  # Bengali - India
+        "te": "Asia/Kolkata",  # Telugu - India
+        "mr": "Asia/Kolkata",  # Marathi - India
+        "ta": "Asia/Kolkata",  # Tamil - India
+        "gu": "Asia/Kolkata",  # Gujarati - India
+        "kn": "Asia/Kolkata",  # Kannada - India
+        "ml": "Asia/Kolkata",  # Malayalam - India
+        "or": "Asia/Kolkata",  # Odia - India
+        "pa": "Asia/Kolkata",  # Punjabi - India
+        "ur": "Asia/Kolkata",  # Urdu - India/Pakistan
+        "as": "Asia/Kolkata",  # Assamese - India
+        "zh": "Asia/Shanghai", # Chinese
+        "ja": "Asia/Tokyo",    # Japanese
+        "ko": "Asia/Seoul",    # Korean
+        "ar": "Asia/Riyadh",   # Arabic
+        "ru": "Europe/Moscow", # Russian
+        "es": "Europe/Madrid", # Spanish
+        "fr": "Europe/Paris",  # French
+        "de": "Europe/Berlin", # German
+        "pt": "America/Sao_Paulo", # Portuguese
+        "it": "Europe/Rome",   # Italian
+    }
+
+    timezone_str = timezone_map.get(user_language[:2], "Asia/Kolkata")
+    tz = pytz.timezone(timezone_str)
+    current_time = datetime.now(tz)
+
+    return {
+        "timezone": timezone_str,
+        "name": current_time.strftime("%Z"),
+        "offset": current_time.strftime("%z"),
+        "current_time": current_time.strftime("%d %B %Y, %I:%M %p %Z")
+    }
 
 async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None) -> bool:
     """Safely edit callback message with comprehensive error handling"""
     if not callback.message:
         return False
-    
-    # Check if message is accessible and has text
-    if not hasattr(callback.message, 'edit_text') or not hasattr(callback.message, 'text') or not callback.message.text:
-        return False
-        
+
     try:
-        if reply_markup:
-            await callback.message.edit_text(text, reply_markup=reply_markup)
-        else:
-            await callback.message.edit_text(text)
-        return True
+        # Check if message is accessible and editable
+        if hasattr(callback.message, 'edit_text') and hasattr(callback.message, 'text'):
+            if reply_markup:
+                await callback.message.edit_text(text, reply_markup=reply_markup)  # type: ignore
+            else:
+                await callback.message.edit_text(text)  # type: ignore
+            return True
+        return False
     except Exception as e:
         print(f"Error editing message: {e}")
         return False
 
 # Global variables to be set by main.py
 dp = None
-users_data = None
-orders_data = None
+users_data = {}
+orders_data = {}
 require_account = None
 format_currency = None
 format_time = None
 is_account_created = None
+user_state = {}
+is_admin = None
 
 def init_account_handlers(main_dp, main_users_data, main_orders_data, main_require_account,
-                         main_format_currency, main_format_time, main_is_account_created, main_user_state):
+                         main_format_currency, main_format_time, main_is_account_created, main_user_state, main_is_admin):
     """Initialize account handlers with references from main.py"""
-    global dp, users_data, orders_data, require_account, format_currency, format_time, is_account_created, user_state
+    global dp, users_data, orders_data, require_account, format_currency, format_time, is_account_created, user_state, is_admin
     dp = main_dp
     users_data = main_users_data
     orders_data = main_orders_data
@@ -49,6 +113,7 @@ def init_account_handlers(main_dp, main_users_data, main_orders_data, main_requi
     format_time = main_format_time
     is_account_created = main_is_account_created
     user_state = main_user_state
+    is_admin = main_is_admin
 
     # Register handlers after initialization
     dp.callback_query.register(require_account(cb_my_account), F.data == "my_account")
@@ -64,6 +129,7 @@ def init_account_handlers(main_dp, main_users_data, main_orders_data, main_requi
     dp.callback_query.register(require_account(cb_payment_methods), F.data == "payment_methods")
 
     # Register language region handlers
+    dp.callback_query.register(require_account(cb_language_regions), F.data == "language_regions")
     dp.callback_query.register(require_account(cb_lang_region_indian), F.data == "lang_region_indian")
     dp.callback_query.register(require_account(cb_lang_region_international), F.data == "lang_region_international")
     dp.callback_query.register(require_account(cb_lang_region_european), F.data == "lang_region_european")
@@ -87,6 +153,7 @@ def init_account_handlers(main_dp, main_users_data, main_orders_data, main_requi
     dp.callback_query.register(require_account(cb_test_api), F.data == "test_api")
     dp.callback_query.register(require_account(cb_api_examples), F.data == "api_examples")
     dp.callback_query.register(require_account(cb_copy_api_key), F.data == "copy_api_key")
+    dp.callback_query.register(require_account(cb_copy_test_commands), F.data == "copy_test_commands")
 
     # Register edit profile handlers
     dp.callback_query.register(require_account(cb_edit_name), F.data == "edit_name")
@@ -145,10 +212,24 @@ async def cb_my_account(callback: CallbackQuery):
     user_id = callback.from_user.id
     user_data = users_data.get(user_id, {})
 
+    # Get user display name
+    telegram_user = callback.from_user
+    user_display_name = f"@{telegram_user.username}" if telegram_user.username else user_data.get('full_name', user_data.get('first_name', 'User'))
+
+    # Get user language for timezone
+    user_language = getattr(telegram_user, 'language_code', 'en') or user_data.get('language_code', 'en')
+    timezone_info = get_user_timezone_info(user_language)
+
+    # Format join date with timezone
+    join_date_formatted = format_join_date_with_timezone(
+        user_data.get('join_date', ''), 
+        timezone_info['timezone']
+    )
+
     text = f"""
 👤 <b>My Account Dashboard</b>
 
-👋 <b>Welcome back, {user_data.get('full_name', user_data.get('first_name', 'User'))}!</b>
+👋 <b>Welcome back, {user_display_name}!</b>
 
 📱 <b>Phone:</b> {user_data.get('phone_number', 'Not set')}
 📧 <b>Email:</b> {user_data.get('email', 'Not set')}
@@ -156,7 +237,9 @@ async def cb_my_account(callback: CallbackQuery):
 💰 <b>Balance:</b> {format_currency(user_data.get('balance', 0.0))}
 📊 <b>Total Spent:</b> {format_currency(user_data.get('total_spent', 0.0))}
 🛒 <b>Total Orders:</b> {user_data.get('orders_count', 0)}
-📅 <b>Member Since:</b> {format_time(user_data.get('join_date', ''))}
+📅 <b>Member Since:</b> {join_date_formatted}
+🌍 <b>Your Timezone:</b> {timezone_info['name']} ({timezone_info['offset']})
+🕐 <b>Current Time:</b> {timezone_info['current_time']}
 
 🔸 <b>Account Status:</b> ✅ Active
 🔸 <b>User ID:</b> <code>{user_id}</code>
@@ -465,7 +548,7 @@ async def cb_create_api_key(callback: CallbackQuery):
     ])
 
     await safe_edit_message(callback, text, success_keyboard)
-    await callback.answer("🎉 API Key successfully created!", show_alert=True)
+    await callback.answer()  # Remove popup alert
 
 async def cb_view_api_key(callback: CallbackQuery):
     """Handle viewing API key"""
@@ -975,6 +1058,43 @@ curl_close($ch);
     await safe_edit_message(callback, text, examples_keyboard)
     await callback.answer()
 
+async def cb_copy_test_commands(callback: CallbackQuery):
+    """Handle copying test commands"""
+    if not callback.message or not callback.from_user:
+        return
+
+    user_id = callback.from_user.id
+    user_data = users_data.get(user_id, {})
+    api_key = user_data.get('api_key')
+
+    if not api_key or api_key == 'Not generated':
+        await callback.answer("❌ Create API key first!", show_alert=True)
+        return
+
+    text = f"""
+📋 <b>Test Commands (Ready to Copy)</b>
+
+🔍 <b>Get Services List:</b>
+<code>curl -H "Authorization: Bearer {api_key}" https://api.indiasocialpanel.com/v1/services</code>
+
+📊 <b>Check Balance:</b>
+<code>curl -H "Authorization: Bearer {api_key}" https://api.indiasocialpanel.com/v1/balance</code>
+
+🛒 <b>Create Order:</b>
+<code>curl -X POST -H "Authorization: Bearer {api_key}" -H "Content-Type: application/json" -d '{{"service":"1","link":"https://instagram.com/username","quantity":"100"}}' https://api.indiasocialpanel.com/v1/order</code>
+
+📱 <b>Long press on any command to copy</b>
+💡 <b>Replace YOUR_URL and quantities as needed</b>
+"""
+
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📚 Full Documentation", callback_data="api_docs")],
+        [InlineKeyboardButton(text="⬅️ API Dashboard", callback_data="api_key")]
+    ])
+
+    await safe_edit_message(callback, text, back_keyboard)
+    await callback.answer()
+
 async def cb_copy_api_key(callback: CallbackQuery):
     """Handle copying API key"""
     if not callback.message or not callback.from_user:
@@ -986,12 +1106,15 @@ async def cb_copy_api_key(callback: CallbackQuery):
 
     if api_key and api_key != 'Not generated':
         text = f"""
-📋 <b>API Key Copied!</b>
+📋 <b>Your API Key (Ready to Copy)</b>
 
-🔑 <b>Your API Key:</b>
+🔑 <b>Full API Key:</b>
 <code>{api_key}</code>
 
-✅ <b>Copy successful!</b>
+📱 <b>How to Copy:</b>
+• <b>Mobile:</b> Long press on key above → Copy
+• <b>Desktop:</b> Triple click to select → Ctrl+C
+
 💡 <b>API key को secure place में store करें</b>
 
 ⚠️ <b>Security Reminder:</b>
@@ -1006,7 +1129,7 @@ async def cb_copy_api_key(callback: CallbackQuery):
         ])
 
         await safe_edit_message(callback, text, back_keyboard)
-        await callback.answer("✅ API Key copied to clipboard!", show_alert=True)
+        await callback.answer()  # No popup alert
     else:
         await callback.answer("❌ No API key found!", show_alert=True)
 
@@ -1507,6 +1630,14 @@ async def cb_preview_profile(callback: CallbackQuery):
         strength = "⚠️ Needs Improvement"
         strength_color = "🔴"
 
+    # Get user timezone and format join date
+    user_language = getattr(telegram_user, 'language_code', 'en') or user_data.get('language_code', 'en')
+    timezone_info = get_user_timezone_info(user_language)
+    join_date_formatted = format_join_date_with_timezone(
+        user_data.get('join_date', ''), 
+        timezone_info['timezone']
+    )
+
     text = f"""
 👀 <b>Profile Preview</b>
 
@@ -1529,7 +1660,8 @@ async def cb_preview_profile(callback: CallbackQuery):
 
 💰 <b>Total Spent:</b> {format_currency(user_data.get('total_spent', 0.0))}
 🛒 <b>Orders:</b> {user_data.get('orders_count', 0)}
-📅 <b>Member Since:</b> {format_time(user_data.get('join_date', ''))}
+📅 <b>Joined:</b> {join_date_formatted}
+🌍 <b>Timezone:</b> {timezone_info['name']} ({timezone_info['offset']})
 ⭐ <b>Account Status:</b> ✅ Active
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2273,6 +2405,422 @@ async def cb_language_select(callback: CallbackQuery):
 
     await safe_edit_message(callback, text, keyboard)
     await callback.answer(f"✅ {selected_language} selected! Coming soon...", show_alert=True)
+
+# ========== ACCOUNT CREATION INPUT HANDLERS ==========
+async def handle_name_input(message, user_state_dict, users_data_dict):
+    """Handle name input during account creation"""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+    user = message.from_user
+    if not user or not message.text:
+        return
+
+    user_id = user.id
+    name = message.text.strip()
+
+    if len(name) < 2:
+        await message.answer("⚠️ Name too short! Please enter at least 2 characters.")
+        return
+
+    if len(name) > 50:
+        await message.answer("⚠️ Name too long! Maximum 50 characters allowed.")
+        return
+
+    # Store name and move to next step
+    user_state_dict[user_id]["data"]["full_name"] = name
+    user_state_dict[user_id]["current_step"] = "waiting_phone"
+
+    text = """
+📋 <b>Account Creation - Step 2/3</b>
+
+📱 <b>कृपया अपना phone number भेजें:</b>
+
+⚠️ <b>Format:</b> +91xxxxxxxxxx
+💬 <b>Example:</b> +919876543210
+
+🔒 <b>Phone verification जरूरी है secure account के लिए</b>
+"""
+
+    await message.answer(text)
+
+
+async def handle_phone_input(message, user_state_dict, users_data_dict):
+    """Handle phone input during account creation"""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+    user = message.from_user
+    if not user or not message.text:
+        return
+
+    user_id = user.id
+    phone = message.text.strip()
+
+    if not phone.startswith("+91") or len(phone) != 13:
+        await message.answer("⚠️ Invalid phone format! Please use: +91xxxxxxxxxx")
+        return
+
+    # Store phone and move to next step
+    user_state_dict[user_id]["data"]["phone_number"] = phone
+    user_state_dict[user_id]["current_step"] = "waiting_email"
+
+    text = """
+📋 <b>Account Creation - Step 3/3</b>
+
+📧 <b>कृपया अपना email address भेजें:</b>
+
+⚠️ <b>Format:</b> name@example.com
+💬 <b>Example:</b> yourname@gmail.com
+
+🔒 <b>Email verification के लिए जरूरी है</b>
+"""
+
+    await message.answer(text)
+
+
+async def handle_email_input(message, user_state_dict, users_data_dict):
+    """Handle email input during account creation with comprehensive validation"""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    import re
+
+    user = message.from_user
+    if not user or not message.text:
+        return
+
+    user_id = user.id
+    email_input = message.text.strip().lower()
+
+    # Remove any spaces from email
+    email_cleaned = email_input.replace(" ", "")
+
+    # Basic format validation - must contain @ and .
+    if "@" not in email_cleaned or "." not in email_cleaned:
+        await message.answer(
+            "⚠️ <b>Invalid Email Format!</b>\n\n"
+            "📧 <b>Email में @ और . होना जरूरी है</b>\n"
+            "💡 <b>Example:</b> yourname@gmail.com\n"
+            "🔄 <b>Correct format में email भेजें</b>"
+        )
+        return
+
+    # Check if email has proper structure
+    email_parts = email_cleaned.split("@")
+    if len(email_parts) != 2:
+        await message.answer(
+            "⚠️ <b>Invalid Email Structure!</b>\n\n"
+            "📧 <b>Email में केवल एक @ होना चाहिए</b>\n"
+            "❌ <b>Example of wrong:</b> user@@gmail.com\n"
+            "✅ <b>Example of correct:</b> user@gmail.com\n\n"
+            "🔄 <b>Correct email format भेजें</b>"
+        )
+        return
+
+    username_part, domain_part = email_parts[0], email_parts[1]
+
+    # Validate username part (before @)
+    if len(username_part) < 1:
+        await message.answer(
+            "⚠️ <b>Username Missing!</b>\n\n"
+            "📧 <b>@ से पहले username होना चाहिए</b>\n"
+            "❌ <b>Wrong:</b> @gmail.com\n"
+            "✅ <b>Correct:</b> yourname@gmail.com\n\n"
+            "🔄 <b>Valid email भेजें</b>"
+        )
+        return
+
+    if len(username_part) > 64:
+        await message.answer(
+            "⚠️ <b>Username Too Long!</b>\n\n"
+            "📧 <b>Email username 64 characters से ज्यादा नहीं हो सकता</b>\n"
+            "💡 <b>Shorter email address use करें</b>\n\n"
+            "🔄 <b>Try again with shorter username</b>"
+        )
+        return
+
+    # Validate domain part (after @)
+    if len(domain_part) < 3:
+        await message.answer(
+            "⚠️ <b>Invalid Domain!</b>\n\n"
+            "📧 <b>Domain name बहुत छोटा है</b>\n"
+            "💡 <b>Example:</b> gmail.com, yahoo.com\n\n"
+            "🔄 <b>Valid domain के साथ email भेजें</b>"
+        )
+        return
+
+    # Check if domain has proper format (at least one dot)
+    if "." not in domain_part:
+        await message.answer(
+            "⚠️ <b>Domain Format Error!</b>\n\n"
+            "📧 <b>Domain में कम से कम एक dot (.) होना चाहिए</b>\n"
+            "❌ <b>Wrong:</b> user@gmailcom\n"
+            "✅ <b>Correct:</b> user@gmail.com\n\n"
+            "🔄 <b>Correct domain format भेजें</b>"
+        )
+        return
+
+    # Split domain into parts
+    domain_parts = domain_part.split(".")
+
+    # Check if domain has at least 2 parts (domain.tld)
+    if len(domain_parts) < 2:
+        await message.answer(
+            "⚠️ <b>Incomplete Domain!</b>\n\n"
+            "📧 <b>Domain incomplete है</b>\n"
+            "💡 <b>Format:</b> domain.extension\n"
+            "💡 <b>Example:</b> gmail.com, yahoo.in\n\n"
+            "🔄 <b>Complete domain भेजें</b>"
+        )
+        return
+
+    # Get top-level domain (last part)
+    tld = domain_parts[-1]
+    main_domain = domain_parts[-2] if len(domain_parts) >= 2 else ""
+
+    # Check if TLD is valid (at least 2 characters)
+    if len(tld) < 2:
+        await message.answer(
+            "⚠️ <b>Invalid Domain Extension!</b>\n\n"
+            "📧 <b>Domain extension बहुत छोटा है</b>\n"
+            "💡 <b>Valid extensions:</b> .com, .in, .org, .net\n\n"
+            "🔄 <b>Valid domain extension के साथ email भेजें</b>"
+        )
+        return
+
+    # List of trusted email domains
+    trusted_domains = {
+        # Major international providers
+        "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "live.com",
+        "icloud.com", "me.com", "mac.com", "aol.com", "mail.com",
+
+        # Indian providers
+        "yahoo.co.in", "rediffmail.com", "sify.com", "in.com",
+        "indiatimes.com", "sancharnet.in", "dataone.in",
+
+        # Educational domains
+        "edu", "ac.in", "edu.in", "student.com",
+
+        # Business domains
+        "company.com", "business.com", "work.com",
+
+        # Other popular providers
+        "protonmail.com", "tutanota.com", "zoho.com", "yandex.com",
+        "mail.ru", "gmx.com", "web.de", "t-online.de"
+    }
+
+    # Check if it's a trusted domain or has valid TLD
+    full_domain = domain_part.lower()
+    valid_tlds = {
+        "com", "org", "net", "edu", "gov", "mil", "int",  # Generic TLDs
+        "in", "co.in", "net.in", "org.in", "gov.in", "ac.in", "edu.in",  # Indian TLDs
+        "us", "uk", "ca", "au", "de", "fr", "jp", "cn", "br", "mx",  # Country TLDs
+        "io", "co", "me", "tv", "cc", "ly", "tk", "ml", "cf", "ga"  # New TLDs
+    }
+
+    is_trusted_domain = full_domain in trusted_domains
+    is_valid_tld = any(full_domain.endswith("." + valid_tld) for valid_tld in valid_tlds)
+
+    # Check for obviously fake or suspicious domains
+    suspicious_patterns = [
+        "temp", "fake", "test", "spam", "junk", "trash", "garbage",
+        "dummy", "example", "sample", "demo", "trial", "invalid",
+        "noemail", "noreply", "donotreply", "bounce", "reject"
+    ]
+
+    is_suspicious = any(pattern in full_domain for pattern in suspicious_patterns)
+
+    # Check for very short domain names (likely fake)
+    if len(main_domain) < 2:
+        await message.answer(
+            "⚠️ <b>Suspicious Domain!</b>\n\n"
+            "📧 <b>Domain name बहुत छोटा और suspicious है</b>\n"
+            "💡 <b>Use popular email providers जैसे:</b>\n"
+            "• gmail.com\n"
+            "• yahoo.com\n"
+            "• outlook.com\n"
+            "• rediffmail.com\n\n"
+            "🔄 <b>Trusted email provider use करें</b>"
+        )
+        return
+
+    # Check for banned/suspicious domains
+    if is_suspicious:
+        await message.answer(
+            "⚠️ <b>Suspicious Email Domain!</b>\n\n"
+            "🚫 <b>यह email domain suspicious या temporary है</b>\n"
+            "❌ <b>Temporary/fake email providers allowed नहीं हैं</b>\n\n"
+            "✅ <b>Use करें:</b>\n"
+            "• Gmail (gmail.com)\n"
+            "• Yahoo (yahoo.com, yahoo.co.in)\n"
+            "• Outlook (outlook.com, hotmail.com)\n"
+            "• Rediffmail (rediffmail.com)\n\n"
+            "🔄 <b>Permanent email address use करें</b>"
+        )
+        return
+
+    # Check if domain is trusted or has valid TLD
+    if not is_trusted_domain and not is_valid_tld:
+        await message.answer(
+            "⚠️ <b>Unrecognized Email Domain!</b>\n\n"
+            f"📧 <b>Domain '{full_domain}' recognized नहीं है</b>\n\n"
+            "✅ <b>Recommended email providers:</b>\n"
+            "• gmail.com ⭐\n"
+            "• yahoo.com / yahoo.co.in\n"
+            "• outlook.com / hotmail.com\n"
+            "• rediffmail.com (Indian)\n"
+            "• icloud.com (Apple)\n\n"
+            "💡 <b>Popular और trusted email provider use करें</b>\n"
+            "🔒 <b>Security और reliability के लिए</b>"
+        )
+        return
+
+    # Additional checks for email username part
+    # Check for invalid characters in username
+    if not re.match(r'^[a-zA-Z0-9._+-]+$', username_part):
+        await message.answer(
+            "⚠️ <b>Invalid Email Characters!</b>\n\n"
+            "📧 <b>Email username में invalid characters हैं</b>\n"
+            "✅ <b>Allowed characters:</b> letters, numbers, dots, underscores, plus, minus\n"
+            "❌ <b>Not allowed:</b> spaces, special symbols\n\n"
+            "🔄 <b>Valid email format भेजें</b>"
+        )
+        return
+
+    # Check if username starts or ends with dots/underscores (invalid)
+    if username_part.startswith('.') or username_part.endswith('.'):
+        await message.answer(
+            "⚠️ <b>Invalid Email Start/End!</b>\n\n"
+            "📧 <b>Email username dot (.) से start या end नहीं हो सकता</b>\n"
+            "❌ <b>Wrong:</b> .user@gmail.com या user.@gmail.com\n"
+            "✅ <b>Correct:</b> user@gmail.com या user.name@gmail.com\n\n"
+            "🔄 <b>Correct format भेजें</b>"
+        )
+        return
+
+    # Check for consecutive dots (invalid)
+    if ".." in username_part:
+        await message.answer(
+            "⚠️ <b>Consecutive Dots Error!</b>\n\n"
+            "📧 <b>Email में consecutive dots (..) allowed नहीं हैं</b>\n"
+            "❌ <b>Wrong:</b> user..name@gmail.com\n"
+            "✅ <b>Correct:</b> user.name@gmail.com\n\n"
+            "🔄 <b>Correct email format भेजें</b>"
+        )
+        return
+
+    # Check if email is too long overall
+    if len(email_cleaned) > 254:
+        await message.answer(
+            "⚠️ <b>Email Too Long!</b>\n\n"
+            "📧 <b>Email address बहुत लंबा है</b>\n"
+            "📏 <b>Maximum 254 characters allowed</b>\n"
+            "💡 <b>Shorter email address use करें</b>\n\n"
+            "🔄 <b>Try with shorter email</b>"
+        )
+        return
+
+    # Check for common typos in popular domains
+    domain_typos = {
+        "gmai.com": "gmail.com",
+        "gmial.com": "gmail.com", 
+        "gmaill.com": "gmail.com",
+        "gmailcom": "gmail.com",
+        "yahooo.com": "yahoo.com",
+        "yahho.com": "yahoo.com",
+        "yaho.com": "yahoo.com",
+        "outlok.com": "outlook.com",
+        "outllok.com": "outlook.com",
+        "hotmial.com": "hotmail.com",
+        "hotmailcom": "hotmail.com"
+    }
+
+    if domain_part in domain_typos:
+        suggested_domain = domain_typos[domain_part]
+        await message.answer(
+            f"⚠️ <b>Possible Typo Detected!</b>\n\n"
+            f"📧 <b>आपने लिखा:</b> {domain_part}\n"
+            f"💡 <b>क्या आपका मतलब था:</b> {suggested_domain}?\n\n"
+            f"✅ <b>Correct email:</b> {username_part}@{suggested_domain}\n\n"
+            "🔄 <b>Correct spelling के साथ email भेजें</b>"
+        )
+        return
+
+    # Complete account creation with validated email
+    validated_email = email_cleaned
+    user_data = user_state_dict[user_id]["data"]
+    users_data_dict[user_id].update({
+        "full_name": user_data["full_name"],
+        "phone_number": user_data["phone_number"],
+        "email": validated_email,
+        "account_created": True
+    })
+
+    # Clear user state
+    user_state_dict[user_id]["current_step"] = None
+    user_state_dict[user_id]["data"] = {}
+
+    # Show processing message first
+    processing_text = f"""
+🔄 <b>Account Creation in Progress...</b>
+
+⚡ <b>Finalizing your account setup, please wait...</b>
+
+✅ <b>Name Verification:</b> Complete
+✅ <b>Phone Verification:</b> Complete  
+🔄 <b>Email Verification:</b> Processing...
+
+📧 <b>Email:</b> {validated_email}
+
+🛡️ <b>Security Protocol:</b> Activating advanced protection
+🔐 <b>Data Encryption:</b> Securing your information
+📊 <b>Dashboard Setup:</b> Preparing your personal panel
+
+⏳ <b>Please wait while we finalize everything...</b>
+
+🎯 <b>Creating the most secure account experience for you!</b>
+"""
+
+    processing_msg = await message.answer(processing_text)
+
+    # Wait for 5 seconds to show processing
+    import asyncio
+    await asyncio.sleep(5)
+
+    # Success message
+    text = f"""
+✅ <b>Account Successfully Created!</b>
+
+🎉 <b>स्वागत है India Social Panel में!</b>
+
+👤 <b>Profile Info:</b>
+• Name: {user_data["full_name"]}
+• Phone: {user_data["phone_number"]}
+• Email: {validated_email}
+
+🎯 <b>Now you can access all features:</b>
+✅ Place orders
+✅ Add funds
+✅ Use all services
+✅ Get support
+
+💡 <b>अब आप सभी features use कर सकते हैं!</b>
+"""
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="👤 My Account", callback_data="my_account"),
+            InlineKeyboardButton(text="🚀 New Order", callback_data="new_order")
+        ],
+        [
+            InlineKeyboardButton(text="🏠 Main Menu", callback_data="back_main")
+        ]
+    ])
+
+    # Edit the processing message to success message
+    try:
+        await processing_msg.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    except:
+        # If edit fails, send new message
+        await message.answer(text, reply_markup=keyboard)
+
 
 # ========== MISSING CRITICAL HANDLERS ==========
 # Note: These handlers will be registered when dp is available

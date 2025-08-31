@@ -20,17 +20,16 @@ async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup: Op
     """Safely edit callback message with comprehensive error handling"""
     if not callback.message:
         return False
-    
-    # Check if message is accessible and has text
-    if not hasattr(callback.message, 'edit_text') or not hasattr(callback.message, 'text') or not callback.message.text:
-        return False
-        
+
     try:
-        if reply_markup:
-            await callback.message.edit_text(text, reply_markup=reply_markup)
-        else:
-            await callback.message.edit_text(text)
-        return True
+        # Check if message is accessible and editable
+        if hasattr(callback.message, 'edit_text'):
+            if reply_markup:
+                await callback.message.edit_text(text, reply_markup=reply_markup)  # type: ignore
+            else:
+                await callback.message.edit_text(text)  # type: ignore
+            return True
+        return False
     except Exception as e:
         print(f"Error editing message: {e}")
         return False
@@ -107,19 +106,24 @@ def get_upi_payment_menu(amount: float, transaction_id: str) -> InlineKeyboardMa
         ]
     ])
 
-def generate_payment_qr(amount: float, upi_id: str, name: str, transaction_id: str) -> str:
+def generate_payment_qr(amount: float, upi_id: str, name: str, transaction_id: str) -> bytes:
     """Generate UPI payment QR code"""
     try:
         # UPI payment string format
         upi_string = f"upi://pay?pa={upi_id}&pn={name}&am={amount}&cu=INR&tn=Payment%20to%20{name.replace(' ', '%20')}&tr={transaction_id}"
 
         # Generate QR code
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=4,
-        )
+        try:
+            from qrcode.constants import ERROR_CORRECT_L  # type: ignore
+            qr = qrcode.QRCode(  # type: ignore
+                version=1,
+                error_correction=ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+        except ImportError:
+            print("QRCode library not available")
+            return b""
         qr.add_data(upi_string)
         qr.make(fit=True)
 
@@ -135,7 +139,7 @@ def generate_payment_qr(amount: float, upi_id: str, name: str, transaction_id: s
 
     except Exception as e:
         print(f"QR Code generation error: {e}")
-        return None
+        return b""  # Return empty bytes instead of None
 
 def generate_upi_payment_link(amount: float, upi_id: str, name: str, transaction_id: str) -> str:
     """Generate UPI payment deep link"""
@@ -200,10 +204,11 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
 
         if amount_data == "custom":
             # Initialize user state if not exists
-            if user_id not in user_state:
+            if user_state and user_id not in user_state:
                 user_state[user_id] = {"current_step": None, "data": {}}
 
-            user_state[user_id]["current_step"] = "waiting_custom_amount"
+            if user_state:
+                user_state[user_id]["current_step"] = "waiting_custom_amount"
 
             text = """
 💰 <b>Custom Amount Entry</b>
@@ -295,7 +300,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
 📱 <b>Payment Details:</b>
 • 🆔 <b>UPI ID:</b> <code>{upi_id}</code>
 • 👤 <b>Name:</b> India Social Panel
-• 💰 <b>Amount:</b> ₹{user_state.get(callback.from_user.id, {}).get('data', {}).get('payment_amount', 1000):,}
+• 💰 <b>Amount:</b> ₹{1000 if not user_state or callback.from_user.id not in user_state else user_state[callback.from_user.id].get('data', {}).get('payment_amount', 1000):,}
 
 📝 <b>Payment Steps:</b>
 1. Open {name} app
@@ -323,7 +328,10 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
             return
 
         user_id = callback.from_user.id if callback.from_user else 0
-        amount = user_state.get(user_id, {}).get("data", {}).get("payment_amount", 1000)
+        amount = 1000
+        if user_state and user_id in user_state:
+            state_data = user_state[user_id].get("data", {})
+            amount = state_data.get("payment_amount", 1000)
         processing_fee = amount * PAYMENT_CONFIG["processing_fee"]["card"] / 100
         total_amount = amount + processing_fee
 
@@ -412,7 +420,10 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
 
         user_id = callback.from_user.id
         transaction_id = (callback.data or "").replace("payment_done_", "")
-        amount = user_state.get(user_id, {}).get("data", {}).get("payment_amount", 1000)
+        amount = 1000
+        if user_state and user_id in user_state:
+            state_data = user_state[user_id].get("data", {})
+            amount = state_data.get("payment_amount", 1000)
 
         text = f"""
 🎉 <b>Payment Completion Confirmed!</b>
@@ -619,15 +630,19 @@ Send transaction screenshot to @achal_parvat
             return
 
         user_id = callback.from_user.id
-        amount = user_state.get(user_id, {}).get("data", {}).get("payment_amount", 1000)
+        amount = 1000
+        if user_state and user_id in user_state:
+            state_data = user_state[user_id].get("data", {})
+            amount = state_data.get("payment_amount", 1000)
 
         transaction_id = f"UPI{int(time.time())}{random.randint(100, 999)}"
 
         # Store transaction details
-        if user_id not in user_state:
+        if user_state and user_id not in user_state:
             user_state[user_id] = {"current_step": None, "data": {}}
-        user_state[user_id]["data"]["transaction_id"] = transaction_id
-        user_state[user_id]["data"]["payment_method"] = "upi"
+        if user_state:
+            user_state[user_id]["data"]["transaction_id"] = transaction_id
+            user_state[user_id]["data"]["payment_method"] = "upi"
 
         text = f"""
 📱 <b>UPI Payment</b>
@@ -661,7 +676,10 @@ Send transaction screenshot to @achal_parvat
 
         user_id = callback.from_user.id
         transaction_id = (callback.data or "").replace("copy_upi_", "")
-        amount = user_state.get(user_id, {}).get("data", {}).get("payment_amount", 1000)
+        amount = 1000
+        if user_state and user_id in user_state:
+            state_data = user_state[user_id].get("data", {})
+            amount = state_data.get("payment_amount", 1000)
 
         text = f"""
 📋 <b>UPI ID Copied!</b>
@@ -690,6 +708,7 @@ Send transaction screenshot to @achal_parvat
 
         await callback.answer("✅ UPI ID copied: 0m12vx8@jio", show_alert=True)
 
+    # QR generation handler
     @main_dp.callback_query(F.data.startswith("qr_generate_"))
     async def cb_qr_generate(callback: CallbackQuery):
         """Generate and send QR code"""
@@ -698,7 +717,10 @@ Send transaction screenshot to @achal_parvat
 
         user_id = callback.from_user.id
         transaction_id = (callback.data or "").replace("qr_generate_", "")
-        amount = user_state.get(user_id, {}).get("data", {}).get("payment_amount", 1000)
+        amount = 1000
+        if user_state and user_id in user_state:
+            state_data = user_state[user_id].get("data", {})
+            amount = state_data.get("payment_amount", 1000)
 
         await callback.answer("🔄 QR Code generate कर रहे हैं...")
 
@@ -744,7 +766,8 @@ Send transaction screenshot to @achal_parvat
 
                 # Try to delete original message
                 try:
-                    await callback.message.delete()
+                    if hasattr(callback.message, 'delete'):
+                        await callback.message.delete()  # type: ignore
                 except:
                     pass
 
@@ -807,7 +830,10 @@ Send transaction screenshot to @achal_parvat
 
         user_id = callback.from_user.id
         transaction_id = (callback.data or "").replace("open_upi_", "")
-        amount = user_state.get(user_id, {}).get("data", {}).get("payment_amount", 1000)
+        amount = 1000
+        if user_state and user_id in user_state:
+            state_data = user_state[user_id].get("data", {})
+            amount = state_data.get("payment_amount", 1000)
 
         # Generate UPI payment link
         upi_link = generate_upi_payment_link(
@@ -931,9 +957,10 @@ async def show_payment_methods(callback: CallbackQuery, amount: int):
     user_id = callback.from_user.id
 
     # Store amount in user state
-    if user_id not in user_state:
+    if user_state and user_id not in user_state:
         user_state[user_id] = {"current_step": None, "data": {}}
-    user_state[user_id]["data"]["payment_amount"] = amount
+    if user_state:
+        user_state[user_id]["data"]["payment_amount"] = amount
 
     # Calculate processing fees for different methods
     upi_total = amount

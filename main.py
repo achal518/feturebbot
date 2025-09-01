@@ -53,7 +53,7 @@ WEBHOOK_URL = f"{BASE_WEBHOOK_URL}{WEBHOOK_PATH}" if BASE_WEBHOOK_URL else None
 
 # Server settings
 WEB_SERVER_HOST = "0.0.0.0"
-WEB_SERVER_PORT = int(os.getenv("PORT", 5000))
+WEB_SERVER_PORT = int(os.getenv("PORT", 8080))
 
 # Bot initialization
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
@@ -132,60 +132,10 @@ def is_message_old(message: Message) -> bool:
     message_timestamp = message.date.timestamp()
     return message_timestamp < START_TIME
 
-async def send_bot_alive_notification(user_id: int, first_name: str = "", is_admin: bool = False, username: str = ""):
-    """Send bot alive notification to user"""
-    try:
-        # Get display name with username preference
-        user_display_name = f"@{username}" if username else first_name or ('Sir' if is_admin else 'Friend')
-
-        if is_admin:
-            alive_text = f"""
-🚀 <b>Admin Alert - Bot Restarted</b>
-
-नमस्ते <b>Admin {user_display_name}</b>! 🙏
-
-✅ <b>India Social Panel Bot Successfully Restarted!</b>
-
-🔄 <b>System Status:</b> ✅ Online
-⏰ <b>Restart Time:</b> {BOT_RESTART_TIME.strftime('%d %b %Y, %I:%M %p')}
-🎯 <b>Bot Mode:</b> {"Webhook" if BASE_WEBHOOK_URL else "Polling"}
-
-📊 <b>Ready to Serve:</b>
-• All services operational
-• User interactions active  
-• Payment system ready
-• 24/7 support available
-
-🛡️ <b>Admin Panel accessible through /start</b>
-"""
-        else:
-            alive_text = f"""
-🤖 <b>Bot Online - India Social Panel</b>
-
-नमस्ते <b>{user_display_name}</b>! 🙏
-
-✅ <b>भारत का सबसे भरोसेमंद SMM Panel अब Online है!</b>
-
-🔄 <b>System Status:</b> Ready to serve
-⏰ <b>Online Since:</b> {BOT_RESTART_TIME.strftime('%d %b %Y, %I:%M %p')}
-
-💡 <b>सभी services अब available हैं!</b>
-
-📱 <b>Services Ready:</b>
-• Instagram • YouTube • Facebook 
-• Twitter • TikTok • LinkedIn
-
-🎯 <b>/start</b> करके services का इस्तेमाल शुरू करें!
-"""
-        await bot.send_message(user_id, alive_text)
-        return True
-    except Exception as e:
-        print(f"❌ Failed to send alive notification to {user_id}: {e}")
-        return False
 
 async def send_first_interaction_notification(user_id: int, first_name: str = "", username: str = ""):
     """Send notification to user on first interaction after restart"""
-    global bot_just_restarted
+
     try:
         # Get display name with username preference
         user_display_name = f"@{username}" if username else first_name or 'Friend'
@@ -478,16 +428,12 @@ def get_offers_rewards_menu() -> InlineKeyboardMarkup:
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     """Handle /start command with professional welcome"""
-    global bot_just_restarted
+
 
     user = message.from_user
     if not user:
         return
 
-    # Send background notifications on first user interaction (not during startup)
-    if bot_just_restarted:
-        bot_just_restarted = False
-        asyncio.create_task(send_background_notifications())
 
     # Check if message is old (sent before bot restart)
     if is_message_old(message):
@@ -4063,10 +4009,7 @@ async def handle_all_messages(message: Message):
     init_user(user_id, user.username or "", user.first_name or "")
 
     # Handle bot restart notifications
-    global bot_just_restarted
-    if bot_just_restarted and user_id in users_to_notify:
-        await send_first_interaction_notification(user_id, user.first_name or "", user.username or "")
-        users_to_notify.discard(user_id)
+
 
     # Check user input state
     if user_id in user_state and user_state[user_id].get("current_step"):
@@ -4281,6 +4224,9 @@ async def on_startup(bot: Bot) -> None:
             print("✅ Service handlers registered successfully!")
             print(f"🌐 Web server started on http://{WEB_SERVER_HOST}:{WEB_SERVER_PORT}")
             print("🤖 Bot is ready to receive webhooks!")
+            
+            # Send admin notification (fail-safe)
+            asyncio.create_task(send_admin_alive_notification())
         else:
             print("⚠️ No webhook URL configured. Bot cannot receive messages!")
             print("📋 Please set BASE_WEBHOOK_URL in environment variables")

@@ -33,18 +33,27 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN missing. Set it in Environment.")
 
-BASE_WEBHOOK_URL = os.getenv("BASE_WEBHOOK_URL")  # Optional for local development
+# Get base URL from environment or use the Replit provided URL
+BASE_WEBHOOK_URL = os.getenv("BASE_WEBHOOK_URL")
+if not BASE_WEBHOOK_URL:
+    # Auto-detect Replit URL if available
+    repl_url = os.getenv("REPLIT_URL")
+    if repl_url:
+        BASE_WEBHOOK_URL = repl_url
+    else:
+        print("⚠️ BASE_WEBHOOK_URL not set. Bot will run in polling mode.")
+
 OWNER_NAME = os.getenv("OWNER_NAME", "Achal Parvat")
 OWNER_USERNAME = os.getenv("OWNER_USERNAME", "achal_parvat")
 
-# Webhook settings (only if webhook URL provided)
+# Webhook settings
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_SECRET = "india_social_panel_secret_2025"
 WEBHOOK_URL = f"{BASE_WEBHOOK_URL}{WEBHOOK_PATH}" if BASE_WEBHOOK_URL else None
 
 # Server settings
 WEB_SERVER_HOST = "0.0.0.0"
-WEB_SERVER_PORT = int(os.getenv("PORT", 5000))
+WEB_SERVER_PORT = int(os.getenv("PORT", 8080))
 
 # Bot initialization
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
@@ -469,9 +478,16 @@ def get_offers_rewards_menu() -> InlineKeyboardMarkup:
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     """Handle /start command with professional welcome"""
+    global bot_just_restarted
+    
     user = message.from_user
     if not user:
         return
+
+    # Send background notifications on first user interaction (not during startup)
+    if bot_just_restarted:
+        bot_just_restarted = False
+        asyncio.create_task(send_background_notifications())
 
     # Check if message is old (sent before bot restart)
     if is_message_old(message):
@@ -4260,8 +4276,11 @@ async def set_bot_commands():
     await bot.set_my_commands(commands)
 
 
-async def send_startup_notifications():
-    """Send startup notifications to admins"""
+async def send_background_notifications():
+    """Send startup notifications in background after startup (Render-friendly)"""
+    # Wait a bit for server to be fully ready
+    await asyncio.sleep(2)
+    
     print("📧 Sending bot alive notifications to admin users...")
     for admin_id in admin_users:
         try:
@@ -4272,85 +4291,92 @@ async def send_startup_notifications():
             print(f"❌ Failed to send alive notification to {admin_id}: {e}")
     print("✅ Bot alive notifications sent to all admins!")
 
+async def send_startup_notifications():
+    """Legacy function - kept for compatibility"""
+    await send_background_notifications()
 
-async def main():
-    """Main function to start the bot"""
-    global bot_just_restarted
 
+# ========== LIFECYCLE FUNCTIONS ==========
+async def on_startup(bot: Bot) -> None:
+    """Startup function with proper webhook configuration"""
     try:
-        print("🔄 Registering payment handlers...")
-        print("🔄 Registering service handlers...")
-        print("🔄 Registering service handlers...")
-        print("✅ Service handlers registered successfully!")
-
         # Set bot commands
-        await set_bot_commands()
-
-        # Send startup notifications
-        await send_startup_notifications()
-
+        commands = [
+            BotCommand(command="start", description="🏠 Main Menu"),
+            BotCommand(command="menu", description="🏠 Show Main Menu"),
+            BotCommand(command="help", description="❓ Get Help")
+        ]
+        await bot.set_my_commands(commands)
+        print("✅ Bot commands set successfully")
+        
+        # Set webhook if URL is available
         if WEBHOOK_URL:
-            # Webhook mode
-            print(f"✅ India Social Panel Bot started with webhook: {WEBHOOK_URL}")
-
-            # Create aiohttp app
-            app = web.Application()
-
-            # Setup webhook
-            webhook_requests_handler = SimpleRequestHandler(
-                dispatcher=dp,
-                bot=bot,
-                secret_token=WEBHOOK_SECRET
-            )
-            webhook_requests_handler.register(app, path=WEBHOOK_PATH)
-            setup_application(app, dp, bot=bot)
-
-            # Set webhook
+            # Delete any existing webhook first
+            await bot.delete_webhook(drop_pending_updates=True)
+            print("🗑️ Cleared previous webhook")
+            
+            # Set new webhook
             await bot.set_webhook(
-                url=WEBHOOK_URL,
+                url=WEBHOOK_URL, 
                 secret_token=WEBHOOK_SECRET,
-                allowed_updates=dp.resolve_used_update_types()
+                drop_pending_updates=True
             )
-
-            # Start web server without running event loop (already in one)
-            from aiohttp.web_runner import AppRunner, TCPSite
-            runner = AppRunner(app)
-            await runner.setup()
-            site = TCPSite(runner, WEB_SERVER_HOST, WEB_SERVER_PORT)
-            await site.start()
-
-            # Keep the server running
+            print(f"✅ Webhook set successfully: {WEBHOOK_URL}")
+            
+            # Verify webhook
+            webhook_info = await bot.get_webhook_info()
+            if webhook_info.url == WEBHOOK_URL:
+                print("✅ Webhook verification successful")
+            else:
+                print(f"⚠️ Webhook verification failed. Expected: {WEBHOOK_URL}, Got: {webhook_info.url}")
+                
+            print("🔄 Registering payment handlers...")
+            print("🔄 Registering service handlers...")
+            print("✅ Service handlers registered successfully!")
             print(f"🌐 Web server started on http://{WEB_SERVER_HOST}:{WEB_SERVER_PORT}")
             print("🤖 Bot is ready to receive webhooks!")
-
-            # Wait indefinitely
-            try:
-                while True:
-                    await asyncio.sleep(3600)  # Sleep for 1 hour, then repeat
-            except asyncio.CancelledError:
-                pass
-            finally:
-                await runner.cleanup()
         else:
-            # Polling mode
-            print("✅ India Social Panel Bot started in polling mode")
-            await send_startup_notifications()
-            await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
-
+            print("⚠️ No webhook URL configured. Bot cannot receive messages!")
+            print("📋 Please set BASE_WEBHOOK_URL in environment variables")
+            
     except Exception as e:
         print(f"❌ Error during startup: {e}")
-        print("Original description:", str(e))
-        if "Flood control" in str(e):
-            print("(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)")
-    finally:
-        print("✅ India Social Panel Bot stopped!")
-        await bot.session.close()
+        raise
+
+async def on_shutdown(bot: Bot) -> None:
+    """Shutdown function - same as working bot"""
+    await bot.delete_webhook()
+    print("✅ India Social Panel Bot stopped!")
+
+def main():
+    """Main function - exactly like working bot"""
+    # Register lifecycle events
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
+    
+    if WEBHOOK_URL:
+        # Create aiohttp app and register handlers - same as working bot
+        app = web.Application()
+        webhook_requests_handler = SimpleRequestHandler(
+            dispatcher=dp,
+            bot=bot,
+            secret_token=WEBHOOK_SECRET,
+        )
+        webhook_requests_handler.register(app, path=WEBHOOK_PATH)
+        
+        # Mount dispatcher on app and start web server - same as working bot
+        setup_application(app, dp, bot=bot)
+        web.run_app(app, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)
+    else:
+        # Polling mode for local development
+        print("✅ India Social Panel Bot started in polling mode")
+        asyncio.run(dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types()))
 
 
 if __name__ == "__main__":
-    """Entry point"""
+    """Entry point - exactly like working bot"""
     try:
-        asyncio.run(main())
+        main()
     except KeyboardInterrupt:
         print("🛑 Bot stopped by user")
     except Exception as e:

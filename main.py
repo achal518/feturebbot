@@ -53,7 +53,7 @@ WEBHOOK_URL = f"{BASE_WEBHOOK_URL}{WEBHOOK_PATH}" if BASE_WEBHOOK_URL else None
 
 # Server settings
 WEB_SERVER_HOST = "0.0.0.0"
-WEB_SERVER_PORT = int(os.getenv("PORT", 8080))
+WEB_SERVER_PORT = int(os.getenv("PORT", 5000))
 
 # Bot initialization
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
@@ -62,8 +62,8 @@ START_TIME = time.time()
 
 # Bot restart tracking
 BOT_RESTART_TIME = datetime.now()
-users_to_notify: set = set()  # Users who interacted during downtime
-bot_just_restarted = True  # Flag to track if bot just restarted
+# Simple admin notification on startup
+ADMIN_USER_ID = 7437014244
 
 # ========== DATA STORAGE ==========
 # In-memory storage (will be replaced with database later)
@@ -479,7 +479,7 @@ def get_offers_rewards_menu() -> InlineKeyboardMarkup:
 async def cmd_start(message: Message):
     """Handle /start command with professional welcome"""
     global bot_just_restarted
-    
+
     user = message.from_user
     if not user:
         return
@@ -3425,77 +3425,7 @@ async def handle_unknown_message(message: Message):
     pass  # Text messages are handled by handle_text_input
 
 # ========== WEBHOOK SETUP ==========
-async def on_startup(bot: Bot) -> None:
-    """Bot startup configuration"""
-    try:
-        commands = [
-            BotCommand(command="start", description="🏠 Main Menu"),
-            BotCommand(command="menu", description="📋 Show Menu")
-        ]
-        await bot.set_my_commands(commands)
-
-        # Only set webhook if BASE_WEBHOOK_URL is provided
-        if BASE_WEBHOOK_URL and WEBHOOK_URL:
-            await bot.set_webhook(url=WEBHOOK_URL, secret_token=WEBHOOK_SECRET)
-            print(f"✅ India Social Panel Bot started with webhook: {WEBHOOK_URL}")
-        else:
-            # For local development, delete webhook and use polling
-            await bot.delete_webhook(drop_pending_updates=True)
-            print("✅ India Social Panel Bot started in polling mode")
-
-        # Send bot alive notifications to admin users immediately
-        print("📧 Sending bot alive notifications to admin users...")
-        for admin_id in admin_users:
-            try:
-                user_data = users_data.get(admin_id, {})
-                first_name = user_data.get("first_name", "Admin")
-                username = user_data.get("username", "")
-                success = await send_bot_alive_notification(admin_id, first_name, is_admin=True, username=username)
-                if success:
-                    print(f"✅ Admin notification sent to {admin_id}")
-                await asyncio.sleep(0.2)  # Small delay to avoid rate limits
-            except Exception as e:
-                print(f"❌ Failed to notify admin {admin_id}: {e}")
-
-        print("✅ Bot alive notifications sent to all admins!")
-
-        # Send notifications to users who interacted during downtime (if any)
-        if users_to_notify:
-            print(f"📧 Sending bot alive notifications to {len(users_to_notify)} regular users...")
-            for user_id in users_to_notify.copy():
-                try:
-                    user_data = users_data.get(user_id, {})
-                    first_name = user_data.get("first_name", "")
-                    username = user_data.get("username", "")
-                    await send_bot_alive_notification(user_id, first_name, is_admin=False, username=username)
-                    await asyncio.sleep(0.1)  # Small delay to avoid rate limits
-                except Exception as e:
-                    print(f"❌ Failed to notify user {user_id}: {e}")
-            users_to_notify.clear()
-            print("✅ Bot alive notifications sent to regular users!")
-
-    except Exception as e:
-        print(f"❌ Error during startup: {e}")
-        # Continue anyway for local development
-
-async def on_shutdown(bot: Bot) -> None:
-    """Bot shutdown cleanup"""
-    if BASE_WEBHOOK_URL:
-        await bot.delete_webhook()
-    print("✅ India Social Panel Bot stopped!")
-
-async def start_polling():
-    """Start bot in polling mode for development"""
-    try:
-        await on_startup(bot)
-        print("🚀 Bot started in polling mode. Press Ctrl+C to stop.")
-        await dp.start_polling(bot)
-    except KeyboardInterrupt:
-        print("\n⏹️ Bot stopped by user")
-    except Exception as e:
-        print(f"❌ Error in polling mode: {e}")
-    finally:
-        await on_shutdown(bot)
+# Note: Duplicate functions removed, using the ones at the end of file
 
 
 # ========== MISSING PAYMENT & NAVIGATION HANDLERS ==========
@@ -4276,24 +4206,23 @@ async def set_bot_commands():
     await bot.set_my_commands(commands)
 
 
-async def send_background_notifications():
-    """Send startup notifications in background after startup (Render-friendly)"""
-    # Wait a bit for server to be fully ready
-    await asyncio.sleep(2)
-    
-    print("📧 Sending bot alive notifications to admin users...")
-    for admin_id in admin_users:
-        try:
-            user_data = users_data.get(admin_id, {})
-            username = user_data.get("username", "")
-            await send_bot_alive_notification(admin_id, "Admin", True, username)
-        except Exception as e:
-            print(f"❌ Failed to send alive notification to {admin_id}: {e}")
-    print("✅ Bot alive notifications sent to all admins!")
+async def send_admin_alive_notification():
+    """Send simple I am alive notification to admin only"""
+    try:
+        alive_text = f"""
+🤖 <b>India Social Panel Bot - I Am Alive!</b>
 
-async def send_startup_notifications():
-    """Legacy function - kept for compatibility"""
-    await send_background_notifications()
+✅ Bot is online and working perfectly!
+⏰ Online Since: {BOT_RESTART_TIME.strftime('%d %b %Y, %I:%M %p')}
+🎯 All systems operational
+
+🚀 Ready to serve users!
+"""
+        await bot.send_message(ADMIN_USER_ID, alive_text)
+        print("✅ Admin alive notification sent successfully")
+    except Exception as e:
+        # Fail silently - never crash the bot
+        print(f"⚠️ Admin notification failed (ignored): {e}")
 
 
 # ========== LIFECYCLE FUNCTIONS ==========
@@ -4308,28 +4237,45 @@ async def on_startup(bot: Bot) -> None:
         ]
         await bot.set_my_commands(commands)
         print("✅ Bot commands set successfully")
-        
+
         # Set webhook if URL is available
+        webhook_success = False
         if WEBHOOK_URL:
-            # Delete any existing webhook first
-            await bot.delete_webhook(drop_pending_updates=True)
-            print("🗑️ Cleared previous webhook")
-            
-            # Set new webhook
-            await bot.set_webhook(
-                url=WEBHOOK_URL, 
-                secret_token=WEBHOOK_SECRET,
-                drop_pending_updates=True
-            )
-            print(f"✅ Webhook set successfully: {WEBHOOK_URL}")
-            
-            # Verify webhook
-            webhook_info = await bot.get_webhook_info()
-            if webhook_info.url == WEBHOOK_URL:
-                print("✅ Webhook verification successful")
-            else:
-                print(f"⚠️ Webhook verification failed. Expected: {WEBHOOK_URL}, Got: {webhook_info.url}")
+            try:
+                # Delete any existing webhook first
+                await bot.delete_webhook(drop_pending_updates=True)
+                print("🗑️ Cleared previous webhook")
                 
+                # Add delay to avoid rate limiting
+                await asyncio.sleep(2)
+
+                # Set new webhook with retry logic
+                await bot.set_webhook(
+                    url=WEBHOOK_URL, 
+                    secret_token=WEBHOOK_SECRET,
+                    drop_pending_updates=True
+                )
+                print(f"✅ Webhook set successfully: {WEBHOOK_URL}")
+                webhook_success = True
+            except Exception as webhook_error:
+                if "Flood control exceeded" in str(webhook_error) or "retry after" in str(webhook_error):
+                    print("⚠️ Telegram rate limit hit, using polling mode temporarily")
+                else:
+                    print(f"⚠️ Webhook setup failed: {webhook_error}")
+                # Continue without webhook
+                webhook_success = False
+
+            # Verify webhook only if it was set successfully
+            if webhook_success:
+                try:
+                    webhook_info = await bot.get_webhook_info()
+                    if webhook_info.url == WEBHOOK_URL:
+                        print("✅ Webhook verification successful")
+                    else:
+                        print(f"⚠️ Webhook verification failed. Expected: {WEBHOOK_URL}, Got: {webhook_info.url}")
+                except Exception as verify_error:
+                    print(f"⚠️ Webhook verification failed: {verify_error}")
+
             print("🔄 Registering payment handlers...")
             print("🔄 Registering service handlers...")
             print("✅ Service handlers registered successfully!")
@@ -4338,7 +4284,7 @@ async def on_startup(bot: Bot) -> None:
         else:
             print("⚠️ No webhook URL configured. Bot cannot receive messages!")
             print("📋 Please set BASE_WEBHOOK_URL in environment variables")
-            
+
     except Exception as e:
         print(f"❌ Error during startup: {e}")
         raise
@@ -4353,17 +4299,51 @@ def main():
     # Register lifecycle events
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
-    
+
     if WEBHOOK_URL:
         # Create aiohttp app and register handlers - same as working bot
         app = web.Application()
+        
+        # Add root route handler for "I am alive" message
+        async def root_handler(request):
+            return web.Response(
+                text="""
+🤖 India Social Panel Bot - I Am Alive! 🇮🇳
+
+✅ Status: Online & Running
+🌐 Server: Active
+📡 Webhook: Connected
+🔄 Services: All Operational
+
+🎯 Bot Features:
+• Instagram Services
+• YouTube Growth 
+• Facebook Marketing
+• Twitter Boost
+• TikTok Viral
+• LinkedIn Professional
+
+📱 How to Use:
+Start chat with our bot on Telegram!
+Search: @YourBotUsername
+
+💡 24/7 Customer Support Available
+🚀 Fast & Secure Delivery
+
+© 2025 India Social Panel - Powered by AI
+                """, 
+                content_type='text/plain'
+            )
+        
+        app.router.add_get('/', root_handler)
+        
         webhook_requests_handler = SimpleRequestHandler(
             dispatcher=dp,
             bot=bot,
             secret_token=WEBHOOK_SECRET,
         )
         webhook_requests_handler.register(app, path=WEBHOOK_PATH)
-        
+
         # Mount dispatcher on app and start web server - same as working bot
         setup_application(app, dp, bot=bot)
         web.run_app(app, host=WEB_SERVER_HOST, port=WEB_SERVER_PORT)

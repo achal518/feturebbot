@@ -11,6 +11,18 @@ from aiogram import F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 import pytz
 
+# Global variables (will be initialized from main.py)
+dp = None
+users_data = None
+orders_data = None
+user_state = None
+format_currency = None
+format_time = None
+safe_edit_message = None
+require_account = None
+is_account_created = None
+is_admin = None
+
 def format_join_date_with_timezone(join_date_str: str, user_timezone: str = "Asia/Kolkata") -> str:
     """Format join date with timezone information"""
     try:
@@ -2821,6 +2833,35 @@ async def handle_email_input(message, user_state_dict, users_data_dict):
         # If edit fails, send new message
         await message.answer(text, reply_markup=keyboard)
 
+
+def init_account_handlers(main_dp, main_users_data, main_orders_data, main_require_account, main_format_currency, main_format_time, main_is_account_created, main_user_state, main_is_admin):
+    """Initialize account handlers with main module dependencies"""
+    global dp, users_data, orders_data, user_state, format_currency, format_time, safe_edit_message, require_account, is_account_created, is_admin
+    dp = main_dp
+    users_data = main_users_data
+    orders_data = main_orders_data
+    user_state = main_user_state
+    format_currency = main_format_currency
+    format_time = main_format_time
+    require_account = main_require_account
+    is_account_created = main_is_account_created
+    is_admin = main_is_admin
+    
+    # Import safe_edit_message from main module
+    from main import safe_edit_message as main_safe_edit_message
+    safe_edit_message = main_safe_edit_message
+
+def register_account_handlers(main_dp, main_users_data, main_orders_data, main_require_account, main_format_currency, main_format_time, main_is_account_created, main_user_state, main_is_admin):
+    """Register all account handlers"""
+    init_account_handlers(main_dp, main_users_data, main_orders_data, main_require_account, main_format_currency, main_format_time, main_is_account_created, main_user_state, main_is_admin)
+    
+    # Register callback handlers
+    dp.callback_query.register(cb_my_account, F.data == "my_account")
+    dp.callback_query.register(cb_order_history, F.data == "order_history")
+    dp.callback_query.register(cb_recharge, F.data == "recharge")
+    dp.callback_query.register(cb_set_phone, F.data == "set_phone")
+    dp.callback_query.register(cb_set_email, F.data == "set_email")
+    dp.callback_query.register(cb_edit_account, F.data == "edit_account")
 
 # ========== MISSING CRITICAL HANDLERS ==========
 # Note: These handlers will be registered when dp is available

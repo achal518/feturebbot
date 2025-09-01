@@ -12,16 +12,19 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardBut
 import pytz
 
 # Global variables (will be initialized from main.py)
-dp = None
-users_data = None
-orders_data = None
-user_state = None
-format_currency = None
-format_time = None
-safe_edit_message = None
-require_account = None
-is_account_created = None
-is_admin = None
+from typing import Dict, Any, Callable, Optional, Union
+
+# Initialize with proper default values to avoid None type errors
+dp: Any = None
+users_data: Dict[int, Dict[str, Any]] = {}
+orders_data: Dict[str, Dict[str, Any]] = {}
+user_state: Dict[int, str] = {}
+format_currency: Optional[Callable[[float], str]] = None
+format_time: Optional[Callable[[str], str]] = None
+safe_edit_message: Optional[Callable] = None
+require_account: Optional[Callable] = None
+is_account_created: Optional[Callable[[int], bool]] = None
+is_admin: Optional[Callable[[int], bool]] = None
 
 def format_join_date_with_timezone(join_date_str: str, user_timezone: str = "Asia/Kolkata") -> str:
     """Format join date with timezone information"""
@@ -93,91 +96,96 @@ async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup: Op
         # Check if message is accessible and editable
         if hasattr(callback.message, 'edit_text') and hasattr(callback.message, 'text'):
             if reply_markup:
-                await callback.message.edit_text(text, reply_markup=reply_markup)  # type: ignore
+                await callback.message.edit_text(text, reply_markup=reply_markup, parse_mode="HTML")
             else:
-                await callback.message.edit_text(text)  # type: ignore
+                await callback.message.edit_text(text, parse_mode="HTML")
             return True
         return False
     except Exception as e:
         print(f"Error editing message: {e}")
+        # If edit fails, try to send new message
+        try:
+            if hasattr(callback.message, 'answer'):
+                if reply_markup:
+                    await callback.message.answer(text, reply_markup=reply_markup, parse_mode="HTML")
+                else:
+                    await callback.message.answer(text, parse_mode="HTML")
+                return True
+        except Exception as e2:
+            print(f"Error sending new message: {e2}")
         return False
 
-# Global variables to be set by main.py
-dp = None
-users_data = {}
-orders_data = {}
-require_account = None
-format_currency = None
-format_time = None
-is_account_created = None
-user_state = {}
-is_admin = None
+# Remove duplicate global variable declarations - already defined above
 
 def init_account_handlers(main_dp, main_users_data, main_orders_data, main_require_account,
                          main_format_currency, main_format_time, main_is_account_created, main_user_state, main_is_admin):
     """Initialize account handlers with references from main.py"""
     global dp, users_data, orders_data, require_account, format_currency, format_time, is_account_created, user_state, is_admin
+
+    # Initialize all global variables
     dp = main_dp
-    users_data = main_users_data
-    orders_data = main_orders_data
+    users_data = main_users_data if main_users_data is not None else {}
+    orders_data = main_orders_data if main_orders_data is not None else {}
     require_account = main_require_account
     format_currency = main_format_currency
     format_time = main_format_time
     is_account_created = main_is_account_created
-    user_state = main_user_state
+    user_state = main_user_state if main_user_state is not None else {}
     is_admin = main_is_admin
 
-    # Register handlers after initialization
-    dp.callback_query.register(require_account(cb_my_account), F.data == "my_account")
-    dp.callback_query.register(require_account(cb_order_history), F.data == "order_history")
-    dp.callback_query.register(require_account(cb_refill_history), F.data == "refill_history")
-    dp.callback_query.register(require_account(cb_api_key), F.data == "api_key")
-    dp.callback_query.register(require_account(cb_edit_profile), F.data == "edit_profile")
-    dp.callback_query.register(require_account(cb_user_stats), F.data == "user_stats")
-    dp.callback_query.register(require_account(cb_smart_alerts), F.data == "smart_alerts")
-    dp.callback_query.register(require_account(cb_language_settings), F.data == "language_settings")
-    dp.callback_query.register(require_account(cb_account_preferences), F.data == "account_preferences")
-    dp.callback_query.register(require_account(cb_security_settings), F.data == "security_settings")
-    dp.callback_query.register(require_account(cb_payment_methods), F.data == "payment_methods")
+    # Only register handlers if all required components are available
+    if dp and require_account:
+        # Register handlers after initialization
+        dp.callback_query.register(require_account(cb_my_account), F.data == "my_account")
+        dp.callback_query.register(require_account(cb_order_history), F.data == "order_history")
+        dp.callback_query.register(require_account(cb_refill_history), F.data == "refill_history")
+        dp.callback_query.register(require_account(cb_api_key), F.data == "api_key")
+        dp.callback_query.register(require_account(cb_edit_profile), F.data == "edit_profile")
+        dp.callback_query.register(require_account(cb_user_stats), F.data == "user_stats")
+        dp.callback_query.register(require_account(cb_smart_alerts), F.data == "smart_alerts")
+        dp.callback_query.register(require_account(cb_language_settings), F.data == "language_settings")
+        dp.callback_query.register(require_account(cb_account_preferences), F.data == "account_preferences")
+        dp.callback_query.register(require_account(cb_security_settings), F.data == "security_settings")
+        dp.callback_query.register(require_account(cb_payment_methods), F.data == "payment_methods")
 
-    # Register language region handlers
-    dp.callback_query.register(require_account(cb_language_regions), F.data == "language_regions")
-    dp.callback_query.register(require_account(cb_lang_region_indian), F.data == "lang_region_indian")
-    dp.callback_query.register(require_account(cb_lang_region_international), F.data == "lang_region_international")
-    dp.callback_query.register(require_account(cb_lang_region_european), F.data == "lang_region_european")
-    dp.callback_query.register(require_account(cb_lang_region_asian), F.data == "lang_region_asian")
-    dp.callback_query.register(require_account(cb_lang_region_middle_east), F.data == "lang_region_middle_east")
-    dp.callback_query.register(require_account(cb_lang_region_americas), F.data == "lang_region_americas")
-    dp.callback_query.register(require_account(cb_lang_region_popular), F.data == "lang_region_popular")
+        # Register language region handlers
+        dp.callback_query.register(require_account(cb_language_regions), F.data == "language_regions")
+        dp.callback_query.register(require_account(cb_lang_region_indian), F.data == "lang_region_indian")
+        dp.callback_query.register(require_account(cb_lang_region_international), F.data == "lang_region_international")
+        dp.callback_query.register(require_account(cb_lang_region_european), F.data == "lang_region_european")
+        dp.callback_query.register(require_account(cb_lang_region_asian), F.data == "lang_region_asian")
+        dp.callback_query.register(require_account(cb_lang_region_middle_east), F.data == "lang_region_middle_east")
+        dp.callback_query.register(require_account(cb_lang_region_americas), F.data == "lang_region_americas")
+        dp.callback_query.register(require_account(cb_lang_region_popular), F.data == "lang_region_popular")
 
-    # Register individual language selection handlers
-    dp.callback_query.register(require_account(cb_language_select), F.data.startswith("select_lang_"))
+        # Register individual language selection handlers
+        dp.callback_query.register(require_account(cb_language_select), F.data.startswith("select_lang_"))
 
-    # Register new API management handlers
-    dp.callback_query.register(require_account(cb_create_api_key), F.data == "create_api_key")
-    dp.callback_query.register(require_account(cb_view_api_key), F.data == "view_api_key")
-    dp.callback_query.register(require_account(cb_regenerate_api), F.data == "regenerate_api")
-    dp.callback_query.register(require_account(cb_confirm_regenerate_api), F.data == "confirm_regenerate_api")
-    dp.callback_query.register(require_account(cb_delete_api_key), F.data == "delete_api_key")
-    dp.callback_query.register(require_account(cb_api_stats), F.data == "api_stats")
-    dp.callback_query.register(require_account(cb_api_docs), F.data == "api_docs")
-    dp.callback_query.register(require_account(cb_api_security), F.data == "api_security")
-    dp.callback_query.register(require_account(cb_test_api), F.data == "test_api")
-    dp.callback_query.register(require_account(cb_api_examples), F.data == "api_examples")
-    dp.callback_query.register(require_account(cb_copy_api_key), F.data == "copy_api_key")
-    dp.callback_query.register(require_account(cb_copy_test_commands), F.data == "copy_test_commands")
+        # Register new API management handlers
+        dp.callback_query.register(require_account(cb_create_api_key), F.data == "create_api_key")
+        dp.callback_query.register(require_account(cb_view_api_key), F.data == "view_api_key")
+        dp.callback_query.register(require_account(cb_regenerate_api), F.data == "regenerate_api")
+        dp.callback_query.register(require_account(cb_confirm_regenerate_api), F.data == "confirm_regenerate_api")
+        dp.callback_query.register(require_account(cb_delete_api_key), F.data == "delete_api_key")
+        dp.callback_query.register(require_account(cb_api_stats), F.data == "api_stats")
+        dp.callback_query.register(require_account(cb_api_docs), F.data == "api_docs")
+        dp.callback_query.register(require_account(cb_api_security), F.data == "api_security")
+        dp.callback_query.register(require_account(cb_test_api), F.data == "test_api")
+        dp.callback_query.register(require_account(cb_api_examples), F.data == "api_examples")
+        dp.callback_query.register(require_account(cb_copy_api_key), F.data == "copy_api_key")
+        dp.callback_query.register(require_account(cb_copy_test_commands), F.data == "copy_test_commands")
 
-    # Register edit profile handlers
-    dp.callback_query.register(require_account(cb_edit_name), F.data == "edit_name")
-    dp.callback_query.register(require_account(cb_edit_phone), F.data == "edit_phone")
-    dp.callback_query.register(require_account(cb_edit_email), F.data == "edit_email")
-    dp.callback_query.register(require_account(cb_edit_bio), F.data == "edit_bio")
-    dp.callback_query.register(require_account(cb_edit_username), F.data == "edit_username")
-    dp.callback_query.register(require_account(cb_edit_location), F.data == "edit_location")
-    dp.callback_query.register(require_account(cb_edit_birthday), F.data == "edit_birthday")
-    dp.callback_query.register(require_account(cb_edit_photo), F.data == "edit_photo")
-    dp.callback_query.register(require_account(cb_sync_telegram_data), F.data == "sync_telegram_data")
-    dp.callback_query.register(require_account(cb_preview_profile), F.data == "preview_profile")
+        # Register edit profile handlers
+        dp.callback_query.register(require_account(cb_edit_name), F.data == "edit_name")
+        dp.callback_query.register(require_account(cb_edit_phone), F.data == "edit_phone")
+        dp.callback_query.register(require_account(cb_edit_email), F.data == "edit_email")
+        dp.callback_query.register(require_account(cb_edit_bio), F.data == "edit_bio")
+        dp.callback_query.register(require_account(cb_edit_username), F.data == "edit_username")
+        dp.callback_query.register(require_account(cb_edit_location), F.data == "edit_location")
+        dp.callback_query.register(require_account(cb_edit_birthday), F.data == "edit_birthday")
+        dp.callback_query.register(require_account(cb_edit_photo), F.data == "edit_photo")
+        dp.callback_query.register(require_account(cb_sync_telegram_data), F.data == "sync_telegram_data")
+        dp.callback_query.register(require_account(cb_preview_profile), F.data == "preview_profile")
 
 
 # ========== ACCOUNT MENU BUILDERS ==========
@@ -1670,7 +1678,7 @@ async def cb_preview_profile(callback: CallbackQuery):
 📊 <b>ACCOUNT STATISTICS</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💰 <b>Total Spent:</b> {format_currency(user_data.get('total_spent', 0.0))}
+💰 <b>Total Spent:</b> {format_currency(user_data.get('total_spent', 0.0)) if format_currency else f"₹{user_data.get('total_spent', 0.0):.2f}"}
 🛒 <b>Orders:</b> {user_data.get('orders_count', 0)}
 📅 <b>Joined:</b> {join_date_formatted}
 🌍 <b>Timezone:</b> {timezone_info['name']} ({timezone_info['offset']})
@@ -1719,13 +1727,13 @@ async def cb_user_stats(callback: CallbackQuery):
 
 👤 <b>Account Overview:</b>
 🆔 <b>User ID:</b> {user_id}
-📅 <b>Member Since:</b> {format_time(user_data.get('join_date', ''))}
+📅 <b>Member Since:</b> {format_time(user_data.get('join_date', '')) if format_time else user_data.get('join_date', 'Unknown')}
 🏆 <b>Account Level:</b> Standard
 
 💰 <b>Financial Stats:</b>
-💳 <b>Current Balance:</b> {format_currency(user_data.get('balance', 0.0))}
-💸 <b>Total Spent:</b> {format_currency(user_data.get('total_spent', 0.0))}
-📈 <b>Average Order:</b> {format_currency(user_data.get('total_spent', 0.0) / max(total_orders, 1))}
+💳 <b>Current Balance:</b> {format_currency(user_data.get('balance', 0.0)) if format_currency else f"₹{user_data.get('balance', 0.0):.2f}"}
+💸 <b>Total Spent:</b> {format_currency(user_data.get('total_spent', 0.0)) if format_currency else f"₹{user_data.get('total_spent', 0.0):.2f}"}
+📈 <b>Average Order:</b> {format_currency(user_data.get('total_spent', 0.0) / max(total_orders, 1)) if format_currency else f"₹{user_data.get('total_spent', 0.0) / max(total_orders, 1):.2f}"}
 
 📦 <b>Order Statistics:</b>
 🛒 <b>Total Orders:</b> {total_orders}
@@ -2834,34 +2842,33 @@ async def handle_email_input(message, user_state_dict, users_data_dict):
         await message.answer(text, reply_markup=keyboard)
 
 
-def init_account_handlers(main_dp, main_users_data, main_orders_data, main_require_account, main_format_currency, main_format_time, main_is_account_created, main_user_state, main_is_admin):
-    """Initialize account handlers with main module dependencies"""
-    global dp, users_data, orders_data, user_state, format_currency, format_time, safe_edit_message, require_account, is_account_created, is_admin
-    dp = main_dp
-    users_data = main_users_data
-    orders_data = main_orders_data
-    user_state = main_user_state
-    format_currency = main_format_currency
-    format_time = main_format_time
-    require_account = main_require_account
-    is_account_created = main_is_account_created
-    is_admin = main_is_admin
-    
-    # Import safe_edit_message from main module
-    from main import safe_edit_message as main_safe_edit_message
-    safe_edit_message = main_safe_edit_message
+# Remove duplicate function definition and add missing handlers
 
-def register_account_handlers(main_dp, main_users_data, main_orders_data, main_require_account, main_format_currency, main_format_time, main_is_account_created, main_user_state, main_is_admin):
-    """Register all account handlers"""
-    init_account_handlers(main_dp, main_users_data, main_orders_data, main_require_account, main_format_currency, main_format_time, main_is_account_created, main_user_state, main_is_admin)
-    
-    # Register callback handlers
-    dp.callback_query.register(cb_my_account, F.data == "my_account")
-    dp.callback_query.register(cb_order_history, F.data == "order_history")
-    dp.callback_query.register(cb_recharge, F.data == "recharge")
-    dp.callback_query.register(cb_set_phone, F.data == "set_phone")
-    dp.callback_query.register(cb_set_email, F.data == "set_email")
-    dp.callback_query.register(cb_edit_account, F.data == "edit_account")
+# Missing handlers that need to be defined
+async def cb_recharge(callback):
+    """Handle recharge button"""
+    if not callback.message:
+        return
+    text = "🔄 <b>Recharge Feature Coming Soon!</b>\n\nBas thoda intezaar karo, hum jaldi hi add kar denge."
+    await safe_edit_message(callback, text, get_back_to_account_keyboard())
+    await callback.answer()
 
-# ========== MISSING CRITICAL HANDLERS ==========
-# Note: These handlers will be registered when dp is available
+async def cb_set_phone(callback):
+    """Handle set phone button"""
+    if not callback.message:
+        return
+    text = "📱 <b>Set Phone Feature Coming Soon!</b>\n\nProfile edit section mein ja kar phone number set kar sakte hain."
+    await safe_edit_message(callback, text, get_back_to_account_keyboard())
+    await callback.answer()
+
+async def cb_set_email(callback):
+    """Handle set email button"""
+    if not callback.message:
+        return
+    text = "📧 <b>Set Email Feature Coming Soon!</b>\n\nProfile edit section mein ja kar email set kar sakte hain."
+    await safe_edit_message(callback, text, get_back_to_account_keyboard())
+    await callback.answer()
+
+async def cb_edit_account(callback):
+    """Handle edit account button - redirect to edit profile"""
+    await cb_edit_profile(callback)

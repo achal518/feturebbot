@@ -63,7 +63,11 @@ START_TIME = time.time()
 # Bot restart tracking
 BOT_RESTART_TIME = datetime.now()
 # Simple admin notification on startup
+# Simple admin notification on startup
 ADMIN_USER_ID = 7437014244
+
+# Set to store users to be notified after a restart
+users_to_notify = set()
 
 # ========== DATA STORAGE ==========
 # In-memory storage (will be replaced with database later)

@@ -18,7 +18,7 @@ from typing import Dict, Any, Callable, Optional, Union
 dp: Any = None
 users_data: Dict[int, Dict[str, Any]] = {}
 orders_data: Dict[str, Dict[str, Any]] = {}
-user_state: Dict[int, str] = {}
+user_state: Dict[int, Dict[str, Any]] = {}  # Fixed type to match main.py
 format_currency: Optional[Callable[[float], str]] = None
 format_time: Optional[Callable[[str], str]] = None
 safe_edit_message: Optional[Callable] = None
@@ -87,40 +87,12 @@ def get_user_timezone_info(user_language: str = "en") -> dict:
         "current_time": current_time.strftime("%d %B %Y, %I:%M %p %Z")
     }
 
-async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None) -> bool:
-    """Safely edit callback message with comprehensive error handling"""
-    if not callback.message:
-        return False
-
-    try:
-        # Check if message is accessible and editable
-        if hasattr(callback.message, 'edit_text') and hasattr(callback.message, 'text'):
-            if reply_markup:
-                await callback.message.edit_text(text, reply_markup=reply_markup, parse_mode="HTML")
-            else:
-                await callback.message.edit_text(text, parse_mode="HTML")
-            return True
-        return False
-    except Exception as e:
-        print(f"Error editing message: {e}")
-        # If edit fails, try to send new message
-        try:
-            if hasattr(callback.message, 'answer'):
-                if reply_markup:
-                    await callback.message.answer(text, reply_markup=reply_markup, parse_mode="HTML")
-                else:
-                    await callback.message.answer(text, parse_mode="HTML")
-                return True
-        except Exception as e2:
-            print(f"Error sending new message: {e2}")
-        return False
-
-# Remove duplicate global variable declarations - already defined above
+# Safe edit message function is passed from main.py - no need to define here
 
 def init_account_handlers(main_dp, main_users_data, main_orders_data, main_require_account,
-                         main_format_currency, main_format_time, main_is_account_created, main_user_state, main_is_admin):
+                         main_format_currency, main_format_time, main_is_account_created, main_user_state, main_is_admin, main_safe_edit_message):
     """Initialize account handlers with references from main.py"""
-    global dp, users_data, orders_data, require_account, format_currency, format_time, is_account_created, user_state, is_admin
+    global dp, users_data, orders_data, require_account, format_currency, format_time, is_account_created, user_state, is_admin, safe_edit_message
 
     # Initialize all global variables
     dp = main_dp
@@ -132,6 +104,7 @@ def init_account_handlers(main_dp, main_users_data, main_orders_data, main_requi
     is_account_created = main_is_account_created
     user_state = main_user_state if main_user_state is not None else {}
     is_admin = main_is_admin
+    safe_edit_message = main_safe_edit_message
 
     # Only register handlers if all required components are available
     if dp and require_account:
@@ -187,6 +160,12 @@ def init_account_handlers(main_dp, main_users_data, main_orders_data, main_requi
         dp.callback_query.register(require_account(cb_sync_telegram_data), F.data == "sync_telegram_data")
         dp.callback_query.register(require_account(cb_preview_profile), F.data == "preview_profile")
 
+        # Register new access token and logout handlers
+        dp.callback_query.register(require_account(cb_copy_access_token_myaccount), F.data == "copy_access_token")
+        dp.callback_query.register(require_account(cb_logout_account), F.data == "logout_account")
+        dp.callback_query.register(require_account(cb_confirm_logout), F.data == "confirm_logout")
+        dp.callback_query.register(require_account(cb_regenerate_access_token), F.data == "regenerate_access_token")
+
 
 # ========== ACCOUNT MENU BUILDERS ==========
 def get_account_menu() -> InlineKeyboardMarkup:
@@ -211,6 +190,10 @@ def get_account_menu() -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton(text="🔐 Security Settings", callback_data="security_settings"),
             InlineKeyboardButton(text="💳 Payment Methods", callback_data="payment_methods")
+        ],
+        [
+            InlineKeyboardButton(text="🔑 Copy Access Token", callback_data="copy_access_token"),
+            InlineKeyboardButton(text="🚪 Logout Account", callback_data="logout_account")
         ],
         [
             InlineKeyboardButton(text="⬅️ Main Menu", callback_data="back_main")
@@ -254,8 +237,8 @@ async def cb_my_account(callback: CallbackQuery):
 📱 <b>Phone:</b> {user_data.get('phone_number', 'Not set')}
 📧 <b>Email:</b> {user_data.get('email', 'Not set')}
 
-💰 <b>Balance:</b> {format_currency(user_data.get('balance', 0.0))}
-📊 <b>Total Spent:</b> {format_currency(user_data.get('total_spent', 0.0))}
+💰 <b>Balance:</b> {format_currency(user_data.get('balance', 0.0)) if format_currency else f"₹{user_data.get('balance', 0.0):.2f}"}
+📊 <b>Total Spent:</b> {format_currency(user_data.get('total_spent', 0.0)) if format_currency else f"₹{user_data.get('total_spent', 0.0):.2f}"}
 🛒 <b>Total Orders:</b> {user_data.get('orders_count', 0)}
 📅 <b>Member Since:</b> {join_date_formatted}
 🌍 <b>Your Timezone:</b> {timezone_info['name']} ({timezone_info['offset']})
@@ -267,74 +250,148 @@ async def cb_my_account(callback: CallbackQuery):
 💡 <b>Choose an option below to manage your account:</b>
 """
 
-    await safe_edit_message(callback, text, get_account_menu())
+    if safe_edit_message:
+        await safe_edit_message(callback, text, get_account_menu())
     await callback.answer()
 
 # ========== ORDER HISTORY ==========
 async def cb_order_history(callback: CallbackQuery):
-    """Handle order history display"""
+    """Show user's order history with proper details"""
     if not callback.message or not callback.from_user:
         return
 
     user_id = callback.from_user.id
 
-    # Get user's orders
+    # Get orders from multiple sources
+    from main import order_temp, orders_data as main_orders_data
     user_orders = []
-    for order_id, order_data in orders_data.items():
-        if order_data.get('user_id') == user_id:
-            user_orders.append((order_id, order_data))
 
-    user_orders.sort(key=lambda x: x[1].get('created_at', ''), reverse=True)
+    print(f"🔍 DEBUG: Checking order history for user {user_id}")
+    print(f"🔍 DEBUG: main_orders_data has {len(main_orders_data)} orders")
+    print(f"🔍 DEBUG: order_temp has user {user_id}: {user_id in order_temp}")
+    print(f"🔍 DEBUG: local orders_data has {len(orders_data)} orders")
+
+    # Get from main orders_data
+    for order_id, order in main_orders_data.items():
+        if order.get('user_id') == user_id:
+            print(f"🔍 Found order in main_orders_data: {order_id}")
+            user_orders.append(order)
+
+    # Get from order_temp (recent orders) 
+    if user_id in order_temp:
+        temp_order = order_temp[user_id].copy()
+        temp_order['is_recent'] = True
+        print(f"🔍 Found recent order in order_temp: {temp_order.get('order_id', 'NO_ID')}")
+        user_orders.append(temp_order)
+
+    # Also get from local orders_data if it exists
+    if orders_data:
+        for order_id, order in orders_data.items():
+            if order.get('user_id') == user_id:
+                # Check if not already added
+                existing_ids = [o.get('order_id') for o in user_orders]
+                if order.get('order_id') not in existing_ids:
+                    print(f"🔍 Found order in local orders_data: {order_id}")
+                    user_orders.append(order)
+
+    print(f"🔍 DEBUG: Total orders found for user {user_id}: {len(user_orders)}")
 
     if not user_orders:
         text = """
 📜 <b>Order History</b>
 
-📝 <b>No orders found</b>
+📋 <b>अभी तक कोई orders नहीं हैं</b>
 
-आपने अभी तक कोई order नहीं किया है।
+🚀 <b>आपने अभी तक कोई orders place नहीं किए हैं!</b>
 
-🚀 <b>अपना पहला order create करने के लिए "New Order" पर click करें!</b>
+💡 <b>First order करने के लिए:</b>
+• "New Order" पर click करें
+• अपना platform choose करें  
+• Package select करें
+• Order place करें
 
-💡 <b>Tips:</b>
-• High quality services available 24/7
-• Fast delivery guarantee
-• Competitive pricing
-• Full customer support
+✨ <b>India Social Panel में आपका स्वागत है!</b>
 """
     else:
         text = f"""
 📜 <b>Order History</b>
 
-📊 <b>Total Orders:</b> {len(user_orders)}
+📊 <b>Total Orders Found:</b> {len(user_orders)}
 
-🕐 <b>Recent Orders:</b>
+📋 <b>Recent Orders (Latest First):</b>
+
 """
+        # Sort orders by created_at (newest first)
+        sorted_orders = sorted(user_orders, key=lambda x: x.get('created_at', ''), reverse=True)
 
-        # Show last 5 orders
-        for order_id, order_data in user_orders[:5]:
-            status_emoji = {
-                'pending': '⏳',
-                'processing': '🔄',
-                'completed': '✅',
-                'failed': '❌',
-                'partial': '⚠️'
-            }.get(order_data.get('status', 'pending'), '⏳')
+        for i, order in enumerate(sorted_orders[:15], 1):  # Show last 15 orders
+            status_emoji = {"processing": "⏳", "completed": "✅", "failed": "❌", "pending": "🔄", "cancelled": "❌"}
+            emoji = status_emoji.get(order.get('status', 'processing'), "⏳")
+
+            # Handle different order data formats
+            order_id = order.get('order_id', f'ORDER-{i}')
+            package_name = order.get('package_name', order.get('service', 'Unknown Package'))
+            platform = order.get('platform', 'Unknown Platform').title()
+            quantity = order.get('quantity', 0)
+            amount = order.get('total_price', order.get('price', 0))
+            created_at = order.get('created_at', '')
+            payment_status = order.get('payment_status', 'completed')
+            payment_method = order.get('payment_method', 'Unknown')
+
+            # Recent order indicator
+            recent_indicator = " 🔥" if order.get('is_recent') else ""
+
+            # Format date properly
+            try:
+                if created_at:
+                    from datetime import datetime
+                    if isinstance(created_at, str):
+                        dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                        formatted_date = dt.strftime("%d %b %Y, %I:%M %p")
+                    else:
+                        formatted_date = str(created_at)
+                else:
+                    formatted_date = "Just now"
+            except:
+                formatted_date = "Recent"
 
             text += f"""
-━━━━━━━━━━━━━━━━━━━━
-🆔 <b>Order:</b> #{order_id}
-📱 <b>Service:</b> {order_data.get('service_name', 'N/A')}
-💰 <b>Amount:</b> {format_currency(order_data.get('amount', 0))}
-📊 <b>Quantity:</b> {order_data.get('quantity', 0)}
-🎯 <b>Status:</b> {status_emoji} {order_data.get('status', 'Pending').title()}
-📅 <b>Date:</b> {format_time(order_data.get('created_at', ''))}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<b>{i}. Order #{order_id}</b>{recent_indicator}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{emoji} <b>Status:</b> {order.get('status', 'Processing').title()}
+📦 <b>Package:</b> {package_name}
+📱 <b>Platform:</b> {platform}
+🔢 <b>Quantity:</b> {quantity:,}
+💰 <b>Amount:</b> {format_currency(amount) if format_currency else f"₹{amount:,.2f}"}
+💳 <b>Payment:</b> {payment_method} - {payment_status.title()}
+📅 <b>Date:</b> {formatted_date}
+
 """
 
-        if len(user_orders) > 5:
-            text += f"\n\n📋 <b>और {len(user_orders)-5} orders...</b>"
+        text += """
+💡 <b>Order Details देखने के लिए:</b>
+• Order ID copy करें
+• Support को भेजें detailed info के लिए
 
-    await safe_edit_message(callback, text, get_back_to_account_keyboard())
+📞 <b>Order में problem है?</b>
+• Support contact करें: @tech_support_admin
+• Order ID mention करना न भूलें
+"""
+
+    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🚀 New Order", callback_data="new_order"),
+            InlineKeyboardButton(text="📞 Contact Support", url="https://t.me/tech_support_admin")
+        ],
+        [
+            InlineKeyboardButton(text="👤 My Account", callback_data="my_account"),
+            InlineKeyboardButton(text="🏠 Main Menu", callback_data="back_main")
+        ]
+    ])
+
+    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 # ========== REFILL HISTORY ==========
@@ -755,7 +812,7 @@ async def cb_delete_api_key(callback: CallbackQuery):
 • Require creating new key for future use
 
 💡 <b>API key deletion feature coming soon!</b>
-📞 <b>For now, contact support for deletion:</b> @achal_parvat
+📞 <b>For now, contact support for deletion:</b> @tech_support_admin
 """
 
     back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -835,10 +892,10 @@ async def cb_api_docs(callback: CallbackQuery):
 
 📖 <b>Request Example:</b>
 <code>
-curl -X POST \\
-  https://api.indiasocialpanel.com/v1/orders \\
-  -H 'Authorization: Bearer YOUR_API_KEY' \\
-  -H 'Content-Type: application/json' \\
+curl -X POST \
+  https://api.indiasocialpanel.com/v1/orders \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
   -d '{
     "service": 1,
     "link": "https://instagram.com/user",
@@ -2426,449 +2483,198 @@ async def cb_language_select(callback: CallbackQuery):
     await safe_edit_message(callback, text, keyboard)
     await callback.answer(f"✅ {selected_language} selected! Coming soon...", show_alert=True)
 
-# ========== ACCOUNT CREATION INPUT HANDLERS ==========
-async def handle_name_input(message, user_state_dict, users_data_dict):
-    """Handle name input during account creation"""
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-    user = message.from_user
-    if not user or not message.text:
+# ========== ACCESS TOKEN & LOGOUT HANDLERS ==========
+async def cb_copy_access_token_myaccount(callback: CallbackQuery):
+    """Handle access token copy from My Account section"""
+    if not callback.message or not callback.from_user:
         return
 
-    user_id = user.id
-    name = message.text.strip()
+    user_id = callback.from_user.id
+    user_data = users_data.get(user_id, {})
+    access_token = user_data.get('access_token', '')
 
-    if len(name) < 2:
-        await message.answer("⚠️ Name too short! Please enter at least 2 characters.")
-        return
+    if access_token:
+        text = f"""
+🔑 <b>Your Access Token</b>
 
-    if len(name) > 50:
-        await message.answer("⚠️ Name too long! Maximum 50 characters allowed.")
-        return
+📋 <b>Access Token (Ready to Copy):</b>
+<code>{access_token}</code>
 
-    # Store name and move to next step
-    user_state_dict[user_id]["data"]["full_name"] = name
-    user_state_dict[user_id]["current_step"] = "waiting_phone"
+📱 <b>How to Copy:</b>
+• <b>Mobile:</b> Long press on token above → Copy
+• <b>Desktop:</b> Triple click to select → Ctrl+C
 
-    text = """
-📋 <b>Account Creation - Step 2/3</b>
+🔐 <b>Security Information:</b>
+• यह token आपके account की key है
+• इसे safely store करें  
+• अगली बार login के लिए इसकी जरूरत होगी
+• Token को किसी के साथ share न करें
 
-📱 <b>कृपया अपना phone number भेजें:</b>
+💡 <b>Usage:</b>
+• New device पर login करने के लिए
+• Account recovery के लिए
+• Secure access के लिए
 
-⚠️ <b>Format:</b> +91xxxxxxxxxx
-💬 <b>Example:</b> +919876543210
-
-🔒 <b>Phone verification जरूरी है secure account के लिए</b>
+⚠️ <b>Keep this token private and secure!</b>
 """
 
-    await message.answer(text)
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📞 Contact Support", url=f"https://t.me/tech_support_admin"),
+                InlineKeyboardButton(text="🔄 Regenerate Token", callback_data="regenerate_access_token")
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ My Account", callback_data="my_account")
+            ]
+        ])
 
+        await safe_edit_message(callback, text, keyboard)
+        await callback.answer()  # No popup alert
+    else:
+        await callback.answer("❌ Access token not found! Contact support.", show_alert=True)
 
-async def handle_phone_input(message, user_state_dict, users_data_dict):
-    """Handle phone input during account creation"""
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-    user = message.from_user
-    if not user or not message.text:
+async def cb_logout_account(callback: CallbackQuery):
+    """Handle logout account request with confirmation"""
+    if not callback.message or not callback.from_user:
         return
 
-    user_id = user.id
-    phone = message.text.strip()
+    user_id = callback.from_user.id
+    user_data = users_data.get(user_id, {})
+    user_display_name = user_data.get('full_name', 'User')
 
-    if not phone.startswith("+91") or len(phone) != 13:
-        await message.answer("⚠️ Invalid phone format! Please use: +91xxxxxxxxxx")
-        return
-
-    # Store phone and move to next step
-    user_state_dict[user_id]["data"]["phone_number"] = phone
-    user_state_dict[user_id]["current_step"] = "waiting_email"
-
-    text = """
-📋 <b>Account Creation - Step 3/3</b>
-
-📧 <b>कृपया अपना email address भेजें:</b>
-
-⚠️ <b>Format:</b> name@example.com
-💬 <b>Example:</b> yourname@gmail.com
-
-🔒 <b>Email verification के लिए जरूरी है</b>
-"""
-
-    await message.answer(text)
-
-
-async def handle_email_input(message, user_state_dict, users_data_dict):
-    """Handle email input during account creation with comprehensive validation"""
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    import re
-
-    user = message.from_user
-    if not user or not message.text:
-        return
-
-    user_id = user.id
-    email_input = message.text.strip().lower()
-
-    # Remove any spaces from email
-    email_cleaned = email_input.replace(" ", "")
-
-    # Basic format validation - must contain @ and .
-    if "@" not in email_cleaned or "." not in email_cleaned:
-        await message.answer(
-            "⚠️ <b>Invalid Email Format!</b>\n\n"
-            "📧 <b>Email में @ और . होना जरूरी है</b>\n"
-            "💡 <b>Example:</b> yourname@gmail.com\n"
-            "🔄 <b>Correct format में email भेजें</b>"
-        )
-        return
-
-    # Check if email has proper structure
-    email_parts = email_cleaned.split("@")
-    if len(email_parts) != 2:
-        await message.answer(
-            "⚠️ <b>Invalid Email Structure!</b>\n\n"
-            "📧 <b>Email में केवल एक @ होना चाहिए</b>\n"
-            "❌ <b>Example of wrong:</b> user@@gmail.com\n"
-            "✅ <b>Example of correct:</b> user@gmail.com\n\n"
-            "🔄 <b>Correct email format भेजें</b>"
-        )
-        return
-
-    username_part, domain_part = email_parts[0], email_parts[1]
-
-    # Validate username part (before @)
-    if len(username_part) < 1:
-        await message.answer(
-            "⚠️ <b>Username Missing!</b>\n\n"
-            "📧 <b>@ से पहले username होना चाहिए</b>\n"
-            "❌ <b>Wrong:</b> @gmail.com\n"
-            "✅ <b>Correct:</b> yourname@gmail.com\n\n"
-            "🔄 <b>Valid email भेजें</b>"
-        )
-        return
-
-    if len(username_part) > 64:
-        await message.answer(
-            "⚠️ <b>Username Too Long!</b>\n\n"
-            "📧 <b>Email username 64 characters से ज्यादा नहीं हो सकता</b>\n"
-            "💡 <b>Shorter email address use करें</b>\n\n"
-            "🔄 <b>Try again with shorter username</b>"
-        )
-        return
-
-    # Validate domain part (after @)
-    if len(domain_part) < 3:
-        await message.answer(
-            "⚠️ <b>Invalid Domain!</b>\n\n"
-            "📧 <b>Domain name बहुत छोटा है</b>\n"
-            "💡 <b>Example:</b> gmail.com, yahoo.com\n\n"
-            "🔄 <b>Valid domain के साथ email भेजें</b>"
-        )
-        return
-
-    # Check if domain has proper format (at least one dot)
-    if "." not in domain_part:
-        await message.answer(
-            "⚠️ <b>Domain Format Error!</b>\n\n"
-            "📧 <b>Domain में कम से कम एक dot (.) होना चाहिए</b>\n"
-            "❌ <b>Wrong:</b> user@gmailcom\n"
-            "✅ <b>Correct:</b> user@gmail.com\n\n"
-            "🔄 <b>Correct domain format भेजें</b>"
-        )
-        return
-
-    # Split domain into parts
-    domain_parts = domain_part.split(".")
-
-    # Check if domain has at least 2 parts (domain.tld)
-    if len(domain_parts) < 2:
-        await message.answer(
-            "⚠️ <b>Incomplete Domain!</b>\n\n"
-            "📧 <b>Domain incomplete है</b>\n"
-            "💡 <b>Format:</b> domain.extension\n"
-            "💡 <b>Example:</b> gmail.com, yahoo.in\n\n"
-            "🔄 <b>Complete domain भेजें</b>"
-        )
-        return
-
-    # Get top-level domain (last part)
-    tld = domain_parts[-1]
-    main_domain = domain_parts[-2] if len(domain_parts) >= 2 else ""
-
-    # Check if TLD is valid (at least 2 characters)
-    if len(tld) < 2:
-        await message.answer(
-            "⚠️ <b>Invalid Domain Extension!</b>\n\n"
-            "📧 <b>Domain extension बहुत छोटा है</b>\n"
-            "💡 <b>Valid extensions:</b> .com, .in, .org, .net\n\n"
-            "🔄 <b>Valid domain extension के साथ email भेजें</b>"
-        )
-        return
-
-    # List of trusted email domains
-    trusted_domains = {
-        # Major international providers
-        "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "live.com",
-        "icloud.com", "me.com", "mac.com", "aol.com", "mail.com",
-
-        # Indian providers
-        "yahoo.co.in", "rediffmail.com", "sify.com", "in.com",
-        "indiatimes.com", "sancharnet.in", "dataone.in",
-
-        # Educational domains
-        "edu", "ac.in", "edu.in", "student.com",
-
-        # Business domains
-        "company.com", "business.com", "work.com",
-
-        # Other popular providers
-        "protonmail.com", "tutanota.com", "zoho.com", "yandex.com",
-        "mail.ru", "gmx.com", "web.de", "t-online.de"
-    }
-
-    # Check if it's a trusted domain or has valid TLD
-    full_domain = domain_part.lower()
-    valid_tlds = {
-        "com", "org", "net", "edu", "gov", "mil", "int",  # Generic TLDs
-        "in", "co.in", "net.in", "org.in", "gov.in", "ac.in", "edu.in",  # Indian TLDs
-        "us", "uk", "ca", "au", "de", "fr", "jp", "cn", "br", "mx",  # Country TLDs
-        "io", "co", "me", "tv", "cc", "ly", "tk", "ml", "cf", "ga"  # New TLDs
-    }
-
-    is_trusted_domain = full_domain in trusted_domains
-    is_valid_tld = any(full_domain.endswith("." + valid_tld) for valid_tld in valid_tlds)
-
-    # Check for obviously fake or suspicious domains
-    suspicious_patterns = [
-        "temp", "fake", "test", "spam", "junk", "trash", "garbage",
-        "dummy", "example", "sample", "demo", "trial", "invalid",
-        "noemail", "noreply", "donotreply", "bounce", "reject"
-    ]
-
-    is_suspicious = any(pattern in full_domain for pattern in suspicious_patterns)
-
-    # Check for very short domain names (likely fake)
-    if len(main_domain) < 2:
-        await message.answer(
-            "⚠️ <b>Suspicious Domain!</b>\n\n"
-            "📧 <b>Domain name बहुत छोटा और suspicious है</b>\n"
-            "💡 <b>Use popular email providers जैसे:</b>\n"
-            "• gmail.com\n"
-            "• yahoo.com\n"
-            "• outlook.com\n"
-            "• rediffmail.com\n\n"
-            "🔄 <b>Trusted email provider use करें</b>"
-        )
-        return
-
-    # Check for banned/suspicious domains
-    if is_suspicious:
-        await message.answer(
-            "⚠️ <b>Suspicious Email Domain!</b>\n\n"
-            "🚫 <b>यह email domain suspicious या temporary है</b>\n"
-            "❌ <b>Temporary/fake email providers allowed नहीं हैं</b>\n\n"
-            "✅ <b>Use करें:</b>\n"
-            "• Gmail (gmail.com)\n"
-            "• Yahoo (yahoo.com, yahoo.co.in)\n"
-            "• Outlook (outlook.com, hotmail.com)\n"
-            "• Rediffmail (rediffmail.com)\n\n"
-            "🔄 <b>Permanent email address use करें</b>"
-        )
-        return
-
-    # Check if domain is trusted or has valid TLD
-    if not is_trusted_domain and not is_valid_tld:
-        await message.answer(
-            "⚠️ <b>Unrecognized Email Domain!</b>\n\n"
-            f"📧 <b>Domain '{full_domain}' recognized नहीं है</b>\n\n"
-            "✅ <b>Recommended email providers:</b>\n"
-            "• gmail.com ⭐\n"
-            "• yahoo.com / yahoo.co.in\n"
-            "• outlook.com / hotmail.com\n"
-            "• rediffmail.com (Indian)\n"
-            "• icloud.com (Apple)\n\n"
-            "💡 <b>Popular और trusted email provider use करें</b>\n"
-            "🔒 <b>Security और reliability के लिए</b>"
-        )
-        return
-
-    # Additional checks for email username part
-    # Check for invalid characters in username
-    if not re.match(r'^[a-zA-Z0-9._+-]+$', username_part):
-        await message.answer(
-            "⚠️ <b>Invalid Email Characters!</b>\n\n"
-            "📧 <b>Email username में invalid characters हैं</b>\n"
-            "✅ <b>Allowed characters:</b> letters, numbers, dots, underscores, plus, minus\n"
-            "❌ <b>Not allowed:</b> spaces, special symbols\n\n"
-            "🔄 <b>Valid email format भेजें</b>"
-        )
-        return
-
-    # Check if username starts or ends with dots/underscores (invalid)
-    if username_part.startswith('.') or username_part.endswith('.'):
-        await message.answer(
-            "⚠️ <b>Invalid Email Start/End!</b>\n\n"
-            "📧 <b>Email username dot (.) से start या end नहीं हो सकता</b>\n"
-            "❌ <b>Wrong:</b> .user@gmail.com या user.@gmail.com\n"
-            "✅ <b>Correct:</b> user@gmail.com या user.name@gmail.com\n\n"
-            "🔄 <b>Correct format भेजें</b>"
-        )
-        return
-
-    # Check for consecutive dots (invalid)
-    if ".." in username_part:
-        await message.answer(
-            "⚠️ <b>Consecutive Dots Error!</b>\n\n"
-            "📧 <b>Email में consecutive dots (..) allowed नहीं हैं</b>\n"
-            "❌ <b>Wrong:</b> user..name@gmail.com\n"
-            "✅ <b>Correct:</b> user.name@gmail.com\n\n"
-            "🔄 <b>Correct email format भेजें</b>"
-        )
-        return
-
-    # Check if email is too long overall
-    if len(email_cleaned) > 254:
-        await message.answer(
-            "⚠️ <b>Email Too Long!</b>\n\n"
-            "📧 <b>Email address बहुत लंबा है</b>\n"
-            "📏 <b>Maximum 254 characters allowed</b>\n"
-            "💡 <b>Shorter email address use करें</b>\n\n"
-            "🔄 <b>Try with shorter email</b>"
-        )
-        return
-
-    # Check for common typos in popular domains
-    domain_typos = {
-        "gmai.com": "gmail.com",
-        "gmial.com": "gmail.com", 
-        "gmaill.com": "gmail.com",
-        "gmailcom": "gmail.com",
-        "yahooo.com": "yahoo.com",
-        "yahho.com": "yahoo.com",
-        "yaho.com": "yahoo.com",
-        "outlok.com": "outlook.com",
-        "outllok.com": "outlook.com",
-        "hotmial.com": "hotmail.com",
-        "hotmailcom": "hotmail.com"
-    }
-
-    if domain_part in domain_typos:
-        suggested_domain = domain_typos[domain_part]
-        await message.answer(
-            f"⚠️ <b>Possible Typo Detected!</b>\n\n"
-            f"📧 <b>आपने लिखा:</b> {domain_part}\n"
-            f"💡 <b>क्या आपका मतलब था:</b> {suggested_domain}?\n\n"
-            f"✅ <b>Correct email:</b> {username_part}@{suggested_domain}\n\n"
-            "🔄 <b>Correct spelling के साथ email भेजें</b>"
-        )
-        return
-
-    # Complete account creation with validated email
-    validated_email = email_cleaned
-    user_data = user_state_dict[user_id]["data"]
-    users_data_dict[user_id].update({
-        "full_name": user_data["full_name"],
-        "phone_number": user_data["phone_number"],
-        "email": validated_email,
-        "account_created": True
-    })
-
-    # Clear user state
-    user_state_dict[user_id]["current_step"] = None
-    user_state_dict[user_id]["data"] = {}
-
-    # Show processing message first
-    processing_text = f"""
-🔄 <b>Account Creation in Progress...</b>
-
-⚡ <b>Finalizing your account setup, please wait...</b>
-
-✅ <b>Name Verification:</b> Complete
-✅ <b>Phone Verification:</b> Complete  
-🔄 <b>Email Verification:</b> Processing...
-
-📧 <b>Email:</b> {validated_email}
-
-🛡️ <b>Security Protocol:</b> Activating advanced protection
-🔐 <b>Data Encryption:</b> Securing your information
-📊 <b>Dashboard Setup:</b> Preparing your personal panel
-
-⏳ <b>Please wait while we finalize everything...</b>
-
-🎯 <b>Creating the most secure account experience for you!</b>
-"""
-
-    processing_msg = await message.answer(processing_text)
-
-    # Wait for 5 seconds to show processing
-    import asyncio
-    await asyncio.sleep(5)
-
-    # Success message
     text = f"""
-✅ <b>Account Successfully Created!</b>
+🚪 <b>Logout Account</b>
 
-🎉 <b>स्वागत है India Social Panel में!</b>
+⚠️ <b>Account Logout Confirmation</b>
 
-👤 <b>Profile Info:</b>
-• Name: {user_data["full_name"]}
-• Phone: {user_data["phone_number"]}
-• Email: {validated_email}
+👤 <b>Current Account:</b> {user_display_name}
+📱 <b>Phone:</b> {user_data.get('phone_number', 'N/A')}
+💰 <b>Balance:</b> {format_currency(user_data.get('balance', 0.0)) if format_currency else f"₹{user_data.get('balance', 0.0):.2f}"}
 
-🎯 <b>Now you can access all features:</b>
-✅ Place orders
-✅ Add funds
-✅ Use all services
-✅ Get support
+🔴 <b>Logout करने से क्या होगा:</b>
+• Account temporarily deactivated रहेगा
+• सभी services access बंद हो जाएंगी  
+• Main menu में वापस "Create Account" और "Login" options मिलेंगे
+• Data safe रहेगा - कुछ भी delete नहीं होगा
+• Same phone/token से दोबारा login कर सकते हैं
 
-💡 <b>अब आप सभी features use कर सकते हैं!</b>
+💡 <b>Logout के बाद:</b>
+• Account create करने का option मिलेगा
+• पुराने account में login करने का option भी मिलेगा  
+• Access token same रहेगा
+
+❓ <b>क्या आप वाकई logout करना चाहते हैं?</b>
 """
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="👤 My Account", callback_data="my_account"),
-            InlineKeyboardButton(text="🚀 New Order", callback_data="new_order")
-        ],
-        [
-            InlineKeyboardButton(text="🏠 Main Menu", callback_data="back_main")
+            InlineKeyboardButton(text="🚪 Yes, Logout", callback_data="confirm_logout"),
+            InlineKeyboardButton(text="❌ Cancel", callback_data="my_account")
         ]
     ])
 
-    # Edit the processing message to success message
-    try:
-        await processing_msg.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-    except:
-        # If edit fails, send new message
-        await message.answer(text, reply_markup=keyboard)
-
-
-# Remove duplicate function definition and add missing handlers
-
-# Missing handlers that need to be defined
-async def cb_recharge(callback):
-    """Handle recharge button"""
-    if not callback.message:
-        return
-    text = "🔄 <b>Recharge Feature Coming Soon!</b>\n\nBas thoda intezaar karo, hum jaldi hi add kar denge."
-    await safe_edit_message(callback, text, get_back_to_account_keyboard())
+    await safe_edit_message(callback, text, keyboard)
     await callback.answer()
 
-async def cb_set_phone(callback):
-    """Handle set phone button"""
-    if not callback.message:
+async def cb_confirm_logout(callback: CallbackQuery):
+    """Confirm and execute logout"""
+    if not callback.message or not callback.from_user:
         return
-    text = "📱 <b>Set Phone Feature Coming Soon!</b>\n\nProfile edit section mein ja kar phone number set kar sakte hain."
-    await safe_edit_message(callback, text, get_back_to_account_keyboard())
-    await callback.answer()
 
-async def cb_set_email(callback):
-    """Handle set email button"""
-    if not callback.message:
+    user_id = callback.from_user.id
+    user_data = users_data.get(user_id, {})
+    user_display_name = user_data.get('full_name', 'User')
+
+    # Set account as not created (logout)
+    users_data[user_id]['account_created'] = False
+
+    # Clear any current user state
+    if user_id in user_state:
+        user_state[user_id] = {"current_step": None, "data": {}}
+
+    text = f"""
+✅ <b>Successfully Logged Out!</b>
+
+👋 <b>Goodbye {user_display_name}!</b>
+
+🔓 <b>Account logout successful</b>
+
+💡 <b>आप अब दोबारा:</b>
+• नया account create कर सकते हैं
+• पुराने account में login कर सकते हैं (Phone/Token से)
+• सभी services access करने के लिए account required है
+
+🔐 <b>Login Options:</b>
+• Phone Number से login करें
+• Access Token से login करें
+• या बिल्कुल नया account बनाएं
+
+🎯 <b>अपना next action choose करें:</b>
+"""
+
+    # Import get_initial_options_menu to show login/create options
+    from account_creation import get_initial_options_menu
+
+    await safe_edit_message(callback, text, get_initial_options_menu())
+    await callback.answer("✅ Account logout successful!", show_alert=True)
+
+async def cb_regenerate_access_token(callback: CallbackQuery):
+    """Handle access token regeneration"""
+    if not callback.message or not callback.from_user:
         return
-    text = "📧 <b>Set Email Feature Coming Soon!</b>\n\nProfile edit section mein ja kar email set kar sakte hain."
-    await safe_edit_message(callback, text, get_back_to_account_keyboard())
-    await callback.answer()
 
-async def cb_edit_account(callback):
-    """Handle edit account button - redirect to edit profile"""
-    await cb_edit_profile(callback)
+    user_id = callback.from_user.id
+    user_data = users_data.get(user_id, {})
+
+    # Generate new access token using the same function from account_creation
+    from account_creation import generate_token
+
+    username = user_data.get('full_name', '')
+    phone = user_data.get('phone_number', '')
+    email = user_data.get('email', '')
+
+    # Determine if it was originally from Telegram name (check if matches current Telegram name)
+    telegram_user = callback.from_user
+    telegram_name = telegram_user.first_name if telegram_user else ""
+    is_telegram_name = (username == telegram_name)
+
+    # Generate new token
+    new_access_token = generate_token(username, phone, email, is_telegram_name)
+
+    # Store new token
+    old_token = user_data.get('access_token', 'N/A')
+    users_data[user_id]['access_token'] = new_access_token
+
+    text = f"""
+🔄 <b>Access Token Regenerated!</b>
+
+🔑 <b>New Access Token:</b>
+<code>{new_access_token}</code>
+
+✅ <b>Token Update Complete:</b>
+• 🗑️ Old token permanently invalidated
+• 🔒 New token activated instantly  
+• 🛡️ Enhanced security applied
+• 📅 Regenerated: Just now
+
+⚠️ <b>Important:</b>
+• पुराना token अब काम नहीं करेगा
+• नया token safe place में store करें
+• Next time इसी token से login करें
+
+💡 <b>Copy new access token और safely store करें</b>
+
+🔒 <b>Security Enhancement Applied Successfully!</b>
+"""
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="⬅️ My Account", callback_data="my_account")
+        ]
+    ])
+
+    await safe_edit_message(callback, text, keyboard)
+    await callback.answer("🔄 New access token generated!", show_alert=True)
+
+# ========== ACCOUNT CREATION FUNCTIONS MOVED TO account_creation.py ==========
+# All account creation input handlers moved to account_creation.py

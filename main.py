@@ -87,27 +87,6 @@ user_state: Dict[int, Dict[str, Any]] = {}  # For tracking user input states
 order_temp: Dict[int, Dict[str, Any]] = {}  # For temporary order data
 admin_users = {ADMIN_USER_ID}  # Use consistent admin user ID
 
-# Add a test order for admin panel testing
-def create_test_order():
-    """Create a test order for admin functionality testing"""
-    test_order_id = f"ISP-{datetime.now().strftime('%d%m%y')}-TEST01"
-    if test_order_id not in orders_data:
-        orders_data[test_order_id] = {
-            'order_id': test_order_id,
-            'user_id': 7437014244,  # Test user ID
-            'first_name': 'Test User',
-            'package_name': 'Instagram Followers - Premium Quality',
-            'platform': 'instagram',
-            'quantity': 1000,
-            'total_price': 50.0,
-            'payment_method': 'UPI',
-            'link': 'https://instagram.com/test_account',
-            'status': 'pending',
-            'created_at': datetime.now().isoformat(),
-            'service_id': 'IG_FOLLOWERS_PREMIUM',
-            'payment_status': 'completed'
-        }
-
 # Handler registration flag - not needed
 # _handlers_registered = False
 
@@ -182,7 +161,7 @@ def is_message_old(message: Message) -> bool:
     return message_timestamp < START_TIME
 
 async def send_admin_notification(order_record: Dict[str, Any]):
-    """Send notification to admin group about a new order or important event"""
+    """Send enhanced notification to admin group about a new order"""
     # Group ID where notifications will be sent
     admin_group_id = -1003009015663
 
@@ -197,51 +176,66 @@ async def send_admin_notification(order_record: Dict[str, Any]):
         link = order_record.get('link', 'N/A')
         service_id = order_record.get('service_id', 'N/A')
         created_at = order_record.get('created_at', '')
-        
-        # Get user info if available - with better fallback
-        user_info = users_data.get(user_id, {}) if user_id else {}
+
+        # Get complete user information from users_data
+        user_info = users_data.get(user_id, {})
         username = user_info.get('username', '')
         first_name = user_info.get('first_name', '')
         full_name = user_info.get('full_name', '')
         phone = user_info.get('phone_number', '')
-        
-        # Use better display values
-        display_username = f"@{username}" if username else "No Username"
-        display_name = full_name or first_name or "No Name Set"
-        display_phone = phone if phone else "No Phone Set"
-        
-        print(f"📊 DEBUG: User {user_id} info - username: {username}, first_name: {first_name}, full_name: {full_name}, phone: {phone}")
+        email = user_info.get('email', '')
+        balance = user_info.get('balance', 0.0)
+        total_spent = user_info.get('total_spent', 0.0)
+        orders_count = user_info.get('orders_count', 0)
+        join_date = user_info.get('join_date', '')
+        referral_code = user_info.get('referral_code', '')
 
-        if order_id: # Notification for new order with screenshot
-            message_text = (
-                f"🚨 <b>नया Order Received - Screenshot Upload!</b>\n\n"
-                f"👤 <b>User Details:</b>\n"
-                f"• User ID: {user_id}\n"
-                f"• Name: {display_name}\n"
-                f"• Username: {display_username}\n"
-                f"• Phone: {display_phone}\n\n"
-                f"📦 <b>Order Details:</b>\n"
-                f"• Order ID: <code>{order_id}</code>\n"
-                f"• Package: {package_name}\n"
-                f"• Platform: {platform.title()}\n"
-                f"• Service ID: {service_id}\n"
-                f"• Link: {link}\n"
-                f"• Quantity: {quantity:,}\n"
-                f"• Amount: ₹{total_price:,.2f}\n"
-                f"• Payment Method: {payment_method}\n"
-                f"• Order Time: {format_time(created_at)}\n\n"
-                f"📸 <b>Payment screenshot uploaded by user</b>\n\n"
-                f"⚡ <b>Action Required: Verify payment and manage order</b>"
-            )
+        # Format display values
+        display_username = f"@{username}" if username else "Not Set"
+        display_name = full_name or first_name or "Not Set"
+        display_phone = phone if phone else "Not Set"
+        display_email = email if email else "Not Set"
+
+        print(f"📊 DEBUG: Enhanced user {user_id} info loaded successfully")
+
+        if order_id: # Enhanced notification for new order with screenshot
+            message_text = f"""🚨 <b>New Order Received - Payment Screenshot!</b>
+
+👤 <b>Customer Information:</b>
+• 🆔 <b>User ID:</b> <code>{user_id}</code>
+• 👤 <b>Name:</b> {display_name}
+• 📱 <b>Username:</b> {display_username}
+• 📞 <b>Phone:</b> {display_phone}
+• 📧 <b>Email:</b> {display_email}
+• 💰 <b>Balance:</b> ₹{balance:,.2f}
+• 💸 <b>Total Spent:</b> ₹{total_spent:,.2f}
+• 📦 <b>Previous Orders:</b> {orders_count}
+• 📅 <b>Member Since:</b> {format_time(join_date)}
+• 🔗 <b>Referral Code:</b> {referral_code}
+
+📦 <b>Order Information:</b>
+• 🆔 <b>Order ID:</b> <code>{order_id}</code>
+• 📦 <b>Package:</b> {package_name}
+• 📱 <b>Platform:</b> {platform.title()}
+• 🔧 <b>Service ID:</b> <code>{service_id}</code>
+• 🔗 <b>Target Link:</b> {link}
+• 🔢 <b>Quantity:</b> {quantity:,}
+• 💰 <b>Amount:</b> ₹{total_price:,.2f}
+• 💳 <b>Payment Method:</b> {payment_method}
+• 🕐 <b>Order Time:</b> {format_time(created_at)}
+
+📸 <b>Payment screenshot uploaded - Verification Required!</b>
+
+⚡️ <b>Quick Actions Available Below</b>"""
         else: # Generic notification for screenshot upload if no order_id
-            message_text = (
-                f"📸 <b>Screenshot Upload Received!</b>\n\n"
-                f"👤 <b>User ID:</b> {user_id}\n"
-                f"📝 <b>Details:</b> A user has uploaded a screenshot for payment verification.\n\n"
-                f"👉 <b>Please check user's messages for context.</b>"
-            )
+            message_text = f"""📸 <b>Screenshot Upload Received!</b>
 
-        # Create management buttons for order handling
+👤 <b>User ID:</b> {user_id}
+📝 <b>Details:</b> Payment screenshot uploaded
+
+👉 <b>Please check for context</b>"""
+
+        # Enhanced management buttons for professional order handling
         management_keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="✅ Complete Order", callback_data=f"admin_complete_{order_id}"),
@@ -249,19 +243,21 @@ async def send_admin_notification(order_record: Dict[str, Any]):
             ],
             [
                 InlineKeyboardButton(text="💬 Send Message", callback_data=f"admin_message_{user_id}"),
-                InlineKeyboardButton(text="📊 Order Details", callback_data=f"admin_details_{order_id}")
+                InlineKeyboardButton(text="👤 User Details", callback_data=f"admin_profile_{user_id}")
             ],
             [
-                InlineKeyboardButton(text="👤 User Profile", callback_data=f"admin_profile_{user_id}"),
+                InlineKeyboardButton(text="📊 Order Details", callback_data=f"admin_details_{order_id}"),
                 InlineKeyboardButton(text="🔄 Refresh Status", callback_data=f"admin_refresh_{order_id}")
             ]
         ])
 
         await bot.send_message(admin_group_id, message_text, parse_mode="HTML", reply_markup=management_keyboard)
-        print(f"✅ Group notification sent for Order ID: {order_id or 'Screenshot Upload'}")
+        print(f"✅ Enhanced group notification sent for Order ID: {order_id or 'Screenshot Upload'}")
 
     except Exception as e:
-        print(f"❌ Failed to send group notification: {e}")
+        print(f"❌ Failed to send enhanced group notification: {e}")
+        import traceback
+        traceback.print_exc()
 
 async def send_first_interaction_notification(user_id: int, first_name: str = "", username: str = ""):
     """Send notification to user on first interaction after restart"""
@@ -306,27 +302,6 @@ def format_time(timestamp: str) -> str:
         return dt.strftime("%d %b %Y, %I:%M %p")
     except (ValueError, TypeError):
         return "N/A"
-
-def format_uptime() -> str:
-    """Format bot uptime in days, hours, minutes, seconds"""
-    current_time = time.time()
-    uptime_seconds = int(current_time - START_TIME)
-    
-    # Calculate days, hours, minutes, seconds
-    days = uptime_seconds // 86400
-    hours = (uptime_seconds % 86400) // 3600
-    minutes = (uptime_seconds % 3600) // 60
-    seconds = uptime_seconds % 60
-    
-    # Format based on duration
-    if days > 0:
-        return f"{days}d {hours}h {minutes}m {seconds}s"
-    elif hours > 0:
-        return f"{hours}h {minutes}m {seconds}s"
-    elif minutes > 0:
-        return f"{minutes}m {seconds}s"
-    else:
-        return f"{seconds}s"
 
 async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None) -> bool:
     """Safely edit callback message with comprehensive error handling"""
@@ -560,6 +535,90 @@ def get_offers_rewards_menu() -> InlineKeyboardMarkup:
     ])
 
 # ========== BOT HANDLERS ==========
+
+@dp.message(Command("broadcast"))
+async def cmd_broadcast(message: Message):
+    """Simple admin broadcast command - NO STATE MANAGEMENT NEEDED"""
+    user = message.from_user
+    if not user or not is_admin(user.id):
+        await message.answer("⚠️ This command is for admins only!")
+        return
+
+    # Get broadcast message from command
+    command_parts = message.text.split(' ', 1)
+    if len(command_parts) < 2:
+        await message.answer("""
+📢 <b>Broadcast Command Usage:</b>
+
+💬 <b>Format:</b> /broadcast your message here
+
+📝 <b>Example:</b> /broadcast Hello all users! New features available.
+
+⚠️ <b>This will send to ALL registered users!</b>
+""")
+        return
+
+    broadcast_message = command_parts[1]
+
+    # Get all registered users DIRECTLY from users_data
+    target_users = list(users_data.keys())
+    print(f"📢 BROADCAST: Admin {user.id} sending to {len(target_users)} users")
+
+    if not target_users:
+        await message.answer("❌ No registered users found!")
+        return
+
+    # Send confirmation to admin
+    await message.answer(f"""
+📢 <b>Broadcasting Message...</b>
+
+📊 <b>Target Users:</b> {len(target_users)}
+📝 <b>Message:</b> {broadcast_message}
+
+🔄 <b>Sending now...</b>
+""")
+
+    # Send broadcast messages DIRECTLY
+    sent_count = 0
+    failed_count = 0
+
+    for user_id in target_users:
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text=f"""
+📢 <b>Message from Admin</b>
+
+{broadcast_message}
+
+---
+<i>India Social Panel Official Broadcast</i>
+""",
+                parse_mode="HTML"
+            )
+            sent_count += 1
+            print(f"✅ Broadcast sent to user {user_id}")
+
+            # Rate limiting
+            import asyncio
+            await asyncio.sleep(0.5)  # 0.5 second delay
+
+        except Exception as e:
+            failed_count += 1
+            print(f"❌ Failed to send to user {user_id}: {e}")
+
+    # Send final report to admin
+    await message.answer(f"""
+✅ <b>Broadcast Complete!</b>
+
+📊 <b>Results:</b>
+• ✅ Successfully sent: {sent_count}
+• ❌ Failed: {failed_count}
+• 👥 Total attempted: {len(target_users)}
+
+🎯 <b>Broadcast finished!</b>
+""")
+
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     """Handle /start command with professional welcome"""
@@ -579,6 +638,14 @@ async def cmd_start(message: Message):
         return  # Ignore old messages
 
     init_user(user.id, user.username or "", user.first_name or "")
+
+    # Auto-complete account for admin users to avoid conflicts
+    if is_admin(user.id) and not is_account_created(user.id):
+        users_data[user.id]['account_created'] = True
+        users_data[user.id]['full_name'] = user.first_name or "Admin"
+        users_data[user.id]['email'] = "admin@indiasocialpanel.com"
+        users_data[user.id]['phone_number'] = "+91XXXXXXXXXX"
+        print(f"🔧 Auto-completed admin account for user {user.id}")
 
     # Check if account is created
     if is_account_created(user.id):
@@ -762,7 +829,7 @@ async def handle_photo_message(message: Message):
     # Try to handle as screenshot upload
     from text_input_handler import handle_screenshot_upload
     screenshot_handled = await handle_screenshot_upload(
-        message, user_state, order_temp, generate_order_id, format_currency, get_main_menu
+        message, order_temp, generate_order_id, format_currency, get_main_menu
     )
 
     if not screenshot_handled:
@@ -901,7 +968,7 @@ async def cb_new_order(callback: CallbackQuery):
 ✅ Secure & Safe Methods
 
 🔒 <b>100% Money Back Guarantee</b>
-⚡ <b>Instant Start Guarantee</b>
+⚡️ <b>Instant Start Guarantee</b>
 
 💡 <b>कृपया अपना platform चुनें:</b>
 """
@@ -1025,7 +1092,7 @@ async def cb_offers_rewards(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "admin_panel")
 async def cb_admin_panel(callback: CallbackQuery):
-    """Handle admin panel access"""
+    """Handle admin panel access - redirect to services.py admin panel"""
     if not callback.message or not callback.from_user:
         return
 
@@ -1048,100 +1115,22 @@ Unauthorized access attempts are logged and monitored.
 
         await safe_edit_message(callback, text, back_keyboard)
     else:
-        # Get current statistics
-        total_users = len(users_data)
-        total_orders = len(orders_data)
-        current_uptime = format_uptime()
-        
-        text = f"""
-👑 <b>Admin Panel</b>
+        # Import admin menu from services.py
+        from services import get_admin_main_menu, get_bot_status_info
 
-🔧 <b>System Controls Available</b>
+        # Show proper admin panel with all buttons
+        text = """
+👑 <b>India Social Panel - Admin Control Center</b>
 
-📊 <b>Current Stats:</b>
-• Total Users: {total_users}
-• Total Orders: {total_orders}
-• Today's Revenue: ₹0.00
+🎯 <b>Welcome Admin!</b> Choose your action below:
 
-⏰ <b>Bot Uptime:</b> {current_uptime}
-
-⚙️ <b>Select an option below:</b>
+🚀 <b>Full administrative access granted</b>
+📊 <b>All systems operational</b>
 """
-        admin_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text="📊 Bot Status", callback_data="admin_bot_status"),
-                InlineKeyboardButton(text="👥 User Stats", callback_data="admin_user_stats")
-            ],
-            [
-                InlineKeyboardButton(text="📦 Order Stats", callback_data="admin_order_stats"),
-                InlineKeyboardButton(text="💰 Revenue Stats", callback_data="admin_revenue_stats")
-            ],
-            [
-                InlineKeyboardButton(text="⬅️ Main Menu", callback_data="back_main")
-            ]
-        ])
 
-        await safe_edit_message(callback, text, admin_keyboard)
+        admin_menu = get_admin_main_menu()
+        await safe_edit_message(callback, text, admin_menu)
 
-    await callback.answer()
-
-@dp.callback_query(F.data == "admin_bot_status")
-async def cb_admin_bot_status(callback: CallbackQuery):
-    """Handle bot status display for admin"""
-    if not callback.message or not callback.from_user:
-        return
-    
-    user_id = callback.from_user.id
-    
-    # Check if user is admin
-    if not is_admin(user_id):
-        await callback.answer("❌ Access Denied", show_alert=True)
-        return
-    
-    # Get detailed bot status information
-    current_uptime = format_uptime()
-    start_date = datetime.fromtimestamp(START_TIME)
-    current_time = datetime.now()
-    total_users = len(users_data)
-    total_orders = len(orders_data)
-    active_users = len([u for u in users_data.values() if u.get('status') == 'active'])
-    
-    text = f"""
-📊 <b>Bot Status & System Information</b>
-
-🟢 <b>Status:</b> Online & Running
-⏰ <b>Current Uptime:</b> {current_uptime}
-
-📅 <b>Started At:</b> {start_date.strftime("%d %b %Y, %I:%M %p")}
-🕐 <b>Current Time:</b> {current_time.strftime("%d %b %Y, %I:%M %p")}
-
-👥 <b>User Statistics:</b>
-• Total Users: {total_users}
-• Active Users: {active_users}
-• Inactive Users: {total_users - active_users}
-
-📦 <b>Order Statistics:</b>
-• Total Orders: {total_orders}
-• Pending Orders: 0
-• Completed Orders: 0
-
-💾 <b>System Info:</b>
-• Bot Token: ✅ Active
-• Webhook Status: ✅ Connected
-• Database: ✅ In-Memory Storage
-• Payment System: ✅ Operational
-
-🔄 <b>Real-time Status:</b> All Systems Operational
-"""
-    
-    back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🔄 Refresh Status", callback_data="admin_bot_status"),
-            InlineKeyboardButton(text="⬅️ Admin Panel", callback_data="admin_panel")
-        ]
-    ])
-    
-    await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "contact_about")
@@ -1161,7 +1150,7 @@ High-quality, affordable social media marketing services प्रदान क�
 
 ✨ <b>Why Choose Us:</b>
 • ✅ 100% Real & Active Users
-• ⚡ Instant Start Guarantee
+• ⚡️ Instant Start Guarantee
 • 🔒 Safe & Secure Services
 • 💬 24/7 Customer Support
 • 💰 Best Prices in Market
@@ -1225,7 +1214,7 @@ async def cb_service_list(callback: CallbackQuery):
 <b>Platform चुनें pricing देखने के लिए:</b>
 
 💎 <b>High Quality Services</b>
-⚡ <b>Instant Start</b>
+⚡️ <b>Instant Start</b>
 🔒 <b>100% Safe & Secure</b>
 """
 
@@ -1392,7 +1381,7 @@ async def cb_final_confirm_order(callback: CallbackQuery):
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="💰 Pay from Balance", callback_data="pay_from_balance"),
-                InlineKeyboardButton(text="⚡ Quick QR Payment", callback_data="payment_qr")
+                InlineKeyboardButton(text="⚡️ Quick QR Payment", callback_data="payment_qr")
             ],
             [
                 InlineKeyboardButton(text="📱 UPI Payment", callback_data="payment_upi"),
@@ -1449,7 +1438,7 @@ async def cb_final_confirm_order(callback: CallbackQuery):
         balance_keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="💰 Add Balance First", callback_data="add_balance_first"),
-                InlineKeyboardButton(text="⚡ Direct Payment Now", callback_data="direct_payment_emergency")
+                InlineKeyboardButton(text="⚡️ Direct Payment Now", callback_data="direct_payment_emergency")
             ],
             [
                 InlineKeyboardButton(text="⬅️ Back to Order", callback_data="skip_coupon")
@@ -1503,7 +1492,7 @@ async def cb_payment_qr(callback: CallbackQuery):
 4. Take screenshot of success message
 5. Click "Payment Done" after successful payment
 
-⚡ <b>QR Code ready for scanning!</b>
+⚡️ <b>QR Code ready for scanning!</b>
 
 💡 <b>Payment complete होने के बाद "Payment Done" button दबाएं</b>
 """
@@ -1572,7 +1561,7 @@ async def cb_copy_order_id(callback: CallbackQuery):
         return
 
     # Extract order ID from callback data
-    order_id = (callback.data or "").replace("copy_order_id_", "")
+    order_id = callback.data.replace("copy_order_id_", "")
 
     copy_text = f"""
 📋 <b>Order ID Copied!</b>
@@ -1632,7 +1621,7 @@ async def cb_add_balance_first(callback: CallbackQuery):
 
 💳 <b>Current Balance:</b> ₹{current_balance:,.2f}
 💸 <b>Required for Order:</b> ₹{total_price:,.2f}
-⚡ <b>Minimum to Add:</b> ₹{shortfall:,.2f}
+⚡️ <b>Minimum to Add:</b> ₹{shortfall:,.2f}
 
 🎯 <b>Recommended Amounts:</b>
 • ₹{max(500, shortfall):,.0f} (Minimum for order)
@@ -1642,7 +1631,7 @@ async def cb_add_balance_first(callback: CallbackQuery):
 💡 <b>Amount चुनें या custom amount type करें:</b>
 
 🔥 <b>Benefits of Adding Balance:</b>
-• ⚡ Instant order processing
+• ⚡️ Instant order processing
 • 💰 No payment hassle every time
 • 🎁 Exclusive member benefits
 • 🚀 Faster checkout process
@@ -1694,7 +1683,7 @@ async def cb_direct_payment_emergency(callback: CallbackQuery):
     current_date = datetime.now().strftime("%d %b %Y, %I:%M %p")
 
     emergency_payment_text = f"""
-⚡ <b>Direct Payment (Emergency Mode)</b>
+⚡️ <b>Direct Payment (Emergency Mode)</b>
 
 🚨 <b>Emergency Order Processing</b>
 
@@ -1710,7 +1699,7 @@ async def cb_direct_payment_emergency(callback: CallbackQuery):
 🎯 <b>सभी payment methods available हैं:</b>
 
 🔥 <b>Instant Payment Features:</b>
-• ⚡ QR Code scan करके pay करें
+• ⚡️ QR Code scan करके pay करें
 • 💳 UPI से direct transfer
 • 🏦 Bank transfer options
 • 📱 All UPI apps supported
@@ -1720,7 +1709,7 @@ async def cb_direct_payment_emergency(callback: CallbackQuery):
 
     emergency_keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="⚡ Quick QR Payment", callback_data="payment_qr"),
+            InlineKeyboardButton(text="⚡️ Quick QR Payment", callback_data="payment_qr"),
             InlineKeyboardButton(text="📱 UPI Payment", callback_data="payment_upi")
         ],
         [
@@ -1863,7 +1852,7 @@ async def cb_wallet_specific_order(callback: CallbackQuery):
         return
 
     user_id = callback.from_user.id
-    wallet_name = (callback.data or "").replace("wallet_", "").replace("_order", "")
+    wallet_name = callback.data.replace("wallet_", "").replace("_order", "")
 
     # Get order details
     order_data = user_state.get(user_id, {}).get("data", {})
@@ -1900,7 +1889,7 @@ async def cb_wallet_specific_order(callback: CallbackQuery):
 4. Enter amount: ₹{total_price:,.2f}
 5. Complete payment with PIN/Password
 
-⚡ <b>Payment के बाद screenshot भेजना जरूरी है!</b>
+⚡️ <b>Payment के बाद screenshot भेजना जरूरी है!</b>
 
 💡 <b>Most users prefer {name} for reliability!</b>
 """
@@ -1930,7 +1919,7 @@ async def cb_netbank_specific(callback: CallbackQuery):
         return
 
     user_id = callback.from_user.id
-    bank_code = (callback.data or "").replace("netbank_", "")
+    bank_code = callback.data.replace("netbank_", "")
 
     # Get order details
     order_data = user_state.get(user_id, {}).get("data", {})
@@ -1996,7 +1985,7 @@ async def cb_copy_wallet_upi(callback: CallbackQuery):
     if not callback.message:
         return
 
-    wallet_name = (callback.data or "").replace("copy_wallet_upi_", "")
+    wallet_name = callback.data.replace("copy_wallet_upi_", "")
     wallet_upis = {
         "paytm": "paytm@indiasmm",
         "phonepe": "phonepe@indiasmm",
@@ -2079,7 +2068,7 @@ async def cb_proceed_netbank(callback: CallbackQuery):
         return
 
     user_id = callback.from_user.id
-    bank_code = (callback.data or "").replace("proceed_netbank_", "")
+    bank_code = callback.data.replace("proceed_netbank_", "")
 
     # Get order details
     order_data = user_state.get(user_id, {}).get("data", {})
@@ -2108,7 +2097,7 @@ async def cb_proceed_netbank(callback: CallbackQuery):
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="⚡ Quick QR Payment", callback_data="payment_qr"),
+            InlineKeyboardButton(text="⚡️ Quick QR Payment", callback_data="payment_qr"),
             InlineKeyboardButton(text="📱 UPI Payment", callback_data="payment_upi")
         ],
         [
@@ -2649,7 +2638,7 @@ async def cb_hashtag_generator(callback: CallbackQuery):
 • Festival-based tags
 
 🤖 <b>AI-powered hashtag generator coming soon!</b>
-⚡ <b>Will generate optimized hashtags for maximum reach</b>
+⚡️ <b>Will generate optimized hashtags for maximum reach</b>
 """
 
     back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -2952,7 +2941,7 @@ async def cb_daily_reward(callback: CallbackQuery):
 • Day 15: ₹50 bonus
 • Day 30: ₹100 bonus
 
-⚡ <b>Special Rewards:</b>
+⚡️ <b>Special Rewards:</b>
 • Weekend bonus (2x rewards)
 • Festival special rewards
 • Birthday month bonus
@@ -3068,7 +3057,7 @@ async def cb_ai_support(callback: CallbackQuery):
 
 🧠 <b>Intelligent Assistant - 24/7 Available</b>
 
-⚡ <b>AI Features:</b>
+⚡️ <b>AI Features:</b>
 • Instant query resolution
 • Smart troubleshooting
 • Order tracking assistance
@@ -3088,7 +3077,7 @@ async def cb_ai_support(callback: CallbackQuery):
 • Learning from interactions
 
 🤖 <b>AI Support system under development!</b>
-⚡ <b>Will provide instant, intelligent assistance 24/7</b>
+⚡️ <b>Will provide instant, intelligent assistance 24/7</b>
 
 📞 <b>For now, contact human support:</b> @{OWNER_USERNAME}
 """
@@ -3124,7 +3113,7 @@ async def cb_contact_admin(callback: CallbackQuery):
 • @BillingSupport_ISP
 • @AccountManager_ISP
 
-⚡ <b>Quick Support Categories:</b>
+⚡️ <b>Quick Support Categories:</b>
 • 🆘 Emergency issues
 • 💰 Payment problems
 • 🔧 Technical difficulties
@@ -3163,9 +3152,12 @@ async def cb_create_ticket(callback: CallbackQuery):
 
     user_id = callback.from_user.id
 
-    # Initialize user state if not exists
+    # Initialize user state if not exists - PROTECT ADMIN BROADCAST
     if user_id not in user_state:
         user_state[user_id] = {"current_step": None, "data": {}}
+    elif user_state[user_id].get("protected") and is_admin(user_id):
+        print(f"🔒 PROTECTED: Not initializing protected admin state for {user_id}")
+        return  # Don't touch protected admin state
 
     user_state[user_id]["current_step"] = "waiting_ticket_subject"
 
@@ -3254,17 +3246,17 @@ async def cb_admin_order_details(callback: CallbackQuery):
         await callback.answer("❌ Unauthorized access!", show_alert=True)
         return
 
-    order_id = (callback.data or "").replace("admin_details_", "")
+    order_id = callback.data.replace("admin_details_", "")
 
     # Get order details - check all possible sources
     global orders_data, order_temp
     print(f"🔍 DEBUG: Details - Looking for order {order_id}")
     print(f"🔍 DEBUG: Details - orders_data has {len(orders_data)} orders")
-    
+
     # Check if we can access the order from different sources
     order_found = False
     order = None
-    
+
     if order_id in orders_data:
         order = orders_data[order_id]
         order_found = True
@@ -3276,11 +3268,11 @@ async def cb_admin_order_details(callback: CallbackQuery):
                 order_found = True
                 orders_data[order_id] = temp_order  # Store back
                 break
-    
-    if not order_found or not order:
+
+    if not order_found:
         await callback.answer("❌ Order not found!", show_alert=True)
         return
-    
+
     details_text = f"""
 📊 <b>Order Complete Details</b>
 
@@ -3292,14 +3284,14 @@ async def cb_admin_order_details(callback: CallbackQuery):
 💰 <b>Amount:</b> ₹{order.get('total_price', 0.0):,.2f}
 💳 <b>Payment Method:</b> {order.get('payment_method', 'N/A')}
 📅 <b>Created:</b> {format_time(order.get('created_at', ''))}
-⚡ <b>Status:</b> {order.get('status', 'pending').title()}
+⚡️ <b>Status:</b> {order.get('status', 'pending').title()}
 
 👤 <b>Customer Details:</b>
 • User ID: {order.get('user_id', 'N/A')}
 • Service ID: {order.get('service_id', 'N/A')}
 • Payment Status: {order.get('payment_status', 'pending')}
 """
-    
+
     # Create management buttons
     details_keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -3329,7 +3321,7 @@ async def cb_admin_order_details(callback: CallbackQuery):
             )
         ]
     ])
-    
+
     await safe_edit_message(callback, details_text, details_keyboard)
     await callback.answer("Order details loaded")
 
@@ -3344,42 +3336,77 @@ async def cb_admin_user_profile(callback: CallbackQuery):
         await callback.answer("❌ Unauthorized access!", show_alert=True)
         return
 
-    target_user_id = int((callback.data or "").replace("admin_profile_", ""))
-    
+    target_user_id = int(callback.data.replace("admin_profile_", ""))
+
     if target_user_id not in users_data:
         await callback.answer("❌ User not found!", show_alert=True)
         return
-    
+
     user = users_data[target_user_id]
-    
+
+    # Enhanced user profile with more details
+    join_date = format_time(user.get('join_date', ''))
+    referral_code = user.get('referral_code', 'N/A')
+    api_key = user.get('api_key', 'Not Generated')
+
+    # Get recent order history count
+    recent_orders = 0
+    for order in orders_data.values():
+        if order.get('user_id') == target_user_id:
+            recent_orders += 1
+
     profile_text = f"""
-👤 <b>User Profile Details</b>
+👤 <b>Complete User Profile</b>
 
-🆔 <b>User ID:</b> {target_user_id}
-👤 <b>Name:</b> {user.get('full_name', 'N/A')}
-📱 <b>Username:</b> @{user.get('username', 'N/A')}
-📞 <b>Phone:</b> {user.get('phone_number', 'N/A')}
-📧 <b>Email:</b> {user.get('email', 'N/A')}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 <b>BASIC INFORMATION</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💰 <b>Balance:</b> ₹{user.get('balance', 0.0):,.2f}
+🆔 <b>User ID:</b> <code>{target_user_id}</code>
+👤 <b>Full Name:</b> {user.get('full_name', 'Not Set')}
+📱 <b>Username:</b> @{user.get('username', 'Not Set')}
+📞 <b>Phone:</b> {user.get('phone_number', 'Not Set')}
+📧 <b>Email:</b> {user.get('email', 'Not Set')}
+📅 <b>Joined:</b> {join_date}
+⚡️ <b>Status:</b> {user.get('status', 'active').title()}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 <b>ACCOUNT STATISTICS</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💳 <b>Current Balance:</b> ₹{user.get('balance', 0.0):,.2f}
 💸 <b>Total Spent:</b> ₹{user.get('total_spent', 0.0):,.2f}
-📦 <b>Orders:</b> {user.get('orders_count', 0)}
-📅 <b>Joined:</b> {format_time(user.get('join_date', ''))}
-⚡ <b>Status:</b> {user.get('status', 'active').title()}
+📦 <b>Total Orders:</b> {user.get('orders_count', 0)}
+📋 <b>Recent Orders:</b> {recent_orders}
+🔗 <b>Referral Code:</b> {referral_code}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔧 <b>TECHNICAL DETAILS</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔑 <b>API Status:</b> {'Active' if api_key != 'Not Generated' else 'Not Generated'}
+✅ <b>Account Created:</b> {'Yes' if user.get('account_created') else 'No'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 <b>Admin Actions Available</b>
 """
 
-    # Create back button
     profile_keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(
-                text="⬅️ Back to Admin Panel",
-                callback_data="admin_panel"
-            )
+            InlineKeyboardButton(text="💬 Send Message", callback_data=f"admin_message_{target_user_id}"),
+            InlineKeyboardButton(text="📜 Order History", callback_data=f"admin_user_orders_{target_user_id}")
+        ],
+        [
+            InlineKeyboardButton(text="💰 Add Balance", callback_data=f"admin_add_balance_{target_user_id}"),
+            InlineKeyboardButton(text="🚫 Suspend User", callback_data=f"admin_suspend_{target_user_id}")
+        ],
+        [
+            InlineKeyboardButton(text="🔄 Refresh Data", callback_data=f"admin_profile_{target_user_id}")
         ]
     ])
-    
+
     await safe_edit_message(callback, profile_text, profile_keyboard)
-    await callback.answer("Profile loaded")
+    await callback.answer("👤 User profile loaded")
 
 @dp.callback_query(F.data.startswith("admin_refresh_"))
 async def cb_admin_refresh_status(callback: CallbackQuery):
@@ -3392,17 +3419,17 @@ async def cb_admin_refresh_status(callback: CallbackQuery):
         await callback.answer("❌ Unauthorized access!", show_alert=True)
         return
 
-    order_id = (callback.data or "").replace("admin_refresh_", "")
-    
+    order_id = callback.data.replace("admin_refresh_", "")
+
     # Debug info for refresh button - check all sources
     global orders_data, order_temp
     print(f"🔍 DEBUG: Refresh - Looking for order {order_id}")
     print(f"🔍 DEBUG: Refresh - orders_data has {len(orders_data)} orders")
-    
+
     # Check if we can access the order from different sources
     order_found = False
     order = None
-    
+
     if order_id in orders_data:
         order = orders_data[order_id]
         order_found = True
@@ -3414,12 +3441,12 @@ async def cb_admin_refresh_status(callback: CallbackQuery):
                 order_found = True
                 orders_data[order_id] = temp_order  # Store back
                 break
-    
-    if not order_found or not order:
+
+    if not order_found:
         await callback.answer("❌ Order not found!", show_alert=True)
         return
     current_status = order.get('status', 'pending')
-    
+
     await callback.answer(f"🔄 Order {order_id} - Current Status: {current_status.title()}", show_alert=True)
 @dp.callback_query(F.data.startswith("admin_complete_"))
 async def cb_admin_complete_order(callback: CallbackQuery):
@@ -3432,18 +3459,18 @@ async def cb_admin_complete_order(callback: CallbackQuery):
         await callback.answer("❌ Unauthorized access!", show_alert=True)
         return
 
-    order_id = (callback.data or "").replace("admin_complete_", "")
+    order_id = callback.data.replace("admin_complete_", "")
 
     # Get order details - check all possible sources  
     global orders_data, order_temp
     print(f"🔍 DEBUG: Complete Order - Looking for order {order_id}")
     print(f"🔍 DEBUG: Complete Order - Global orders_data has {len(orders_data)} orders")
     print(f"🔍 DEBUG: Complete Order - Available orders: {list(orders_data.keys())}")
-    
+
     # Check if we can access the order from different sources
     order_found = False
     order = None
-    
+
     if order_id in orders_data:
         order = orders_data[order_id]
         order_found = True
@@ -3458,33 +3485,31 @@ async def cb_admin_complete_order(callback: CallbackQuery):
                 # Also store it back in orders_data
                 orders_data[order_id] = temp_order
                 break
-    
-    if not order_found or not order:
+
+    if not order_found:
         await callback.answer("❌ Order not found in any storage!", show_alert=True)
         return
-    customer_id = order.get('user_id')
+    customer_id = order['user_id']
     # Get customer name from users_data instead of order
     customer_info = users_data.get(customer_id, {})
     customer_name = customer_info.get('full_name') or customer_info.get('first_name', 'Customer')
-    package_name = order.get('package_name', 'N/A')
-    platform = order.get('platform', 'N/A')
-    quantity = order.get('quantity', 0)
-    total_price = order.get('total_price', 0.0)
+    package_name = order['package_name']
+    platform = order['platform']
+    quantity = order['quantity']
+    total_price = order['total_price']
 
     # Update order status
     orders_data[order_id]['status'] = 'completed'
     orders_data[order_id]['completed_at'] = datetime.now().isoformat()
     orders_data[order_id]['completed_by_admin'] = user_id
 
-    # Update user's order count and spending
-    if customer_id and customer_id in users_data:
-        # Ensure fields exist with default values
-        if 'orders_count' not in users_data[customer_id]:
-            users_data[customer_id]['orders_count'] = 0
-        if 'total_spent' not in users_data[customer_id]:
-            users_data[customer_id]['total_spent'] = 0.0
-        users_data[customer_id]['orders_count'] += 1
-        users_data[customer_id]['total_spent'] += total_price
+    # Update user's order count and spending - enhanced with validation
+    if customer_id in users_data:
+        users_data[customer_id]['orders_count'] = users_data[customer_id].get('orders_count', 0) + 1
+        users_data[customer_id]['total_spent'] = users_data[customer_id].get('total_spent', 0.0) + total_price
+        print(f"✅ DEBUG: Updated user {customer_id} stats - Orders: {users_data[customer_id]['orders_count']}, Spent: ₹{users_data[customer_id]['total_spent']}")
+    else:
+        print(f"⚠️ DEBUG: Customer {customer_id} not found in users_data during order completion")
 
     # Send completion message to customer
     customer_message = f"""
@@ -3504,7 +3529,7 @@ async def cb_admin_complete_order(callback: CallbackQuery):
 
 ✅ <b>Status:</b> Completed
 📅 <b>Completed:</b> {datetime.now().strftime("%d %b %Y, %I:%M %p")}
-⚡ <b>Delivery:</b> Service is now active
+⚡️ <b>Delivery:</b> Service is now active
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 💝 <b>THANK YOU!</b>
@@ -3579,7 +3604,7 @@ async def cb_admin_cancel_order(callback: CallbackQuery):
         await callback.answer("❌ Unauthorized access!", show_alert=True)
         return
 
-    order_id = (callback.data or "").replace("admin_cancel_", "")
+    order_id = callback.data.replace("admin_cancel_", "")
 
     # Show cancellation reason options
     cancel_text = f"""
@@ -3644,18 +3669,18 @@ async def cb_admin_cancel_reason(callback: CallbackQuery):
         return
 
     # Parse callback data: cancel_reason_ORDER_ID_REASON
-    callback_parts = (callback.data or "").split("_")
+    callback_parts = callback.data.split("_")
     order_id = callback_parts[2]
     reason_type = "_".join(callback_parts[3:])
 
     # Get order details - check all possible sources
     global orders_data, order_temp
     print(f"🔍 DEBUG: Cancel Reason - Looking for order {order_id}")
-    
+
     # Check if we can access the order from different sources
     order_found = False
     order = None
-    
+
     if order_id in orders_data:
         order = orders_data[order_id]
         order_found = True
@@ -3667,16 +3692,16 @@ async def cb_admin_cancel_reason(callback: CallbackQuery):
                 order_found = True
                 orders_data[order_id] = temp_order  # Store back
                 break
-    
-    if not order_found or not order:
+
+    if not order_found:
         await callback.answer("❌ Order not found!", show_alert=True)
         return
-    customer_id = order.get('user_id')
+    customer_id = order['user_id']
     # Get customer name from users_data instead of order
     customer_info = users_data.get(customer_id, {})
     customer_name = customer_info.get('full_name') or customer_info.get('first_name', 'Customer')
-    package_name = order.get('package_name', 'N/A')
-    total_price = order.get('total_price', 0.0)
+    package_name = order['package_name']
+    total_price = order['total_price']
 
     # Reason mapping
     reason_messages = {
@@ -3794,11 +3819,15 @@ async def cb_admin_message(callback: CallbackQuery):
         return
 
     # Get target user ID from callback data
-    target_user_id = int((callback.data or "").replace("admin_message_", ""))
+    target_user_id = int(callback.data.replace("admin_message_", ""))
 
-    # Set admin state for message input
+    # Set admin state for message input - PROTECT BROADCAST STATE
     if admin_id not in user_state:
         user_state[admin_id] = {"current_step": None, "data": {}}
+    elif user_state[admin_id].get("protected") and is_admin(admin_id):
+        print(f"🔒 PROTECTED: Admin {admin_id} in protected broadcast mode, cancelling message setup")
+        await callback.answer("⚠️ Finish your current broadcast first!", show_alert=True)
+        return
 
     user_state[admin_id]["current_step"] = f"admin_messaging_{target_user_id}"
     user_state[admin_id]["data"] = {"target_user_id": target_user_id}
@@ -3836,7 +3865,7 @@ async def cb_admin_processing(callback: CallbackQuery):
         await callback.answer("❌ Unauthorized access!", show_alert=True)
         return
 
-    order_id = (callback.data or "").replace("admin_processing_", "")
+    order_id = callback.data.replace("admin_processing_", "")
 
     # Get order details
     if order_id not in orders_data:
@@ -3857,7 +3886,7 @@ async def cb_admin_processing(callback: CallbackQuery):
     customer_message = f"""
 🔄 <b>ORDER PROCESSING STARTED!</b>
 
-⚡ <b>Great news! Your order is now being processed.</b>
+⚡️ <b>Great news! Your order is now being processed.</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 <b>ORDER DETAILS</b>
@@ -3871,7 +3900,7 @@ async def cb_admin_processing(callback: CallbackQuery):
 ⏰ <b>Expected Completion:</b> 0-6 hours
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚡ <b>WHAT HAPPENS NEXT?</b>
+⚡️ <b>WHAT HAPPENS NEXT?</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🎯 <b>Our team is working on your order</b>
@@ -3916,7 +3945,7 @@ async def cb_admin_processing(callback: CallbackQuery):
 
 📊 <b>Processing Started:</b> {datetime.now().strftime("%d %b %Y, %I:%M %p")}
 
-⚡ <b>Order is now in active processing queue!</b>
+⚡️ <b>Order is now in active processing queue!</b>
 """
 
         await safe_edit_message(callback, admin_update)
@@ -3971,6 +4000,15 @@ async def handle_text_input_wrapper(message: Message):
     print(f"🔍 TEXT DEBUG: User {user_id} sent text: '{message.text[:50]}...'")
     print(f"🔍 TEXT DEBUG: User {user_id} current_step: {current_step}")
 
+    # PRIORITY: Check for admin broadcast first
+    from services import handle_admin_broadcast_message, is_admin
+    if is_admin(user_id):
+        print(f"🔍 ADMIN CHECK: User {user_id} is admin, current_step: {current_step}")
+        if current_step == "admin_broadcast_message":
+            print(f"📢 Processing admin broadcast message from {user_id}")
+            await handle_admin_broadcast_message(message, user_id)
+            return
+
     # Account creation steps that should be handled by account_creation.py
     account_creation_steps = ["waiting_login_phone", "waiting_custom_name", "waiting_manual_phone", "waiting_email", "waiting_access_token", "waiting_contact_permission"]
 
@@ -3983,7 +4021,7 @@ async def handle_text_input_wrapper(message: Message):
 
     # Otherwise use regular text input handler
     await text_input_handler.handle_text_input(
-        message, user_state, users_data, order_temp, tickets_data,
+        message, users_data, order_temp, tickets_data,
         is_message_old, mark_user_for_notification, is_account_created,
         format_currency, get_main_menu, OWNER_USERNAME
     )
@@ -4128,13 +4166,6 @@ async def on_startup():
 
     print("🔄 Initializing service system...")
     services.register_service_handlers(dp, require_account)
-    
-    print("🔄 Registering service handlers...")
-
-    # Create test order and test user data for admin panel testing
-    create_test_order()
-    if 7437014244 not in users_data:
-        init_user(7437014244, "achalkumar", "Test User")
 
     # Set bot commands
     commands = [

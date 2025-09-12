@@ -39,10 +39,75 @@ def get_order_confirm_menu(price: float):
         ]
     ])
 
-async def handle_screenshot_upload(message: Message, user_state: Dict[int, Dict[str, Any]], 
+async def handle_admin_direct_message(message: Message, admin_id: int, target_user_id: int):
+    """Handle admin direct message sending to specific user"""
+    try:
+        from main import bot, user_state, users_data
+
+        # Get admin and target user info
+        admin_info = users_data.get(admin_id, {})
+        target_info = users_data.get(target_user_id, {})
+
+        admin_name = admin_info.get('full_name', 'Admin')
+        target_name = target_info.get('full_name', 'User')
+
+        # Clear admin state
+        if admin_id in user_state:
+            user_state[admin_id]["current_step"] = None
+            user_state[admin_id]["data"] = {}
+
+        # Send message to target user
+        user_message = f"""
+📩 <b>Message from Admin</b>
+
+👨‍💼 <b>From:</b> {admin_name} (India Social Panel)
+
+💬 <b>Message:</b>
+{message.text}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📞 <b>Need help?</b> Contact @tech_support_admin
+"""
+
+        from main import InlineKeyboardMarkup, InlineKeyboardButton
+        user_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📞 Contact Support", url="https://t.me/tech_support_admin"),
+                InlineKeyboardButton(text="🏠 Main Menu", callback_data="back_main")
+            ]
+        ])
+
+        await bot.send_message(
+            chat_id=target_user_id, 
+            text=user_message, 
+            parse_mode="HTML",
+            reply_markup=user_keyboard
+        )
+
+        # Confirm to admin
+        admin_confirmation = f"""
+✅ <b>Message Sent Successfully!</b>
+
+👤 <b>Sent to:</b> {target_name} (ID: {target_user_id})
+💬 <b>Message:</b> "{message.text}"
+🕐 <b>Time:</b> {datetime.now().strftime("%d %b %Y, %I:%M %p")}
+
+📊 <b>Message delivered successfully!</b>
+"""
+
+        await message.answer(admin_confirmation, parse_mode="HTML")
+        print(f"✅ Admin {admin_id} sent message to user {target_user_id}: {message.text}")
+
+    except Exception as e:
+        print(f"❌ Error sending admin message: {e}")
+        await message.answer("❌ Error sending message. Please try again.")
+
+async def handle_screenshot_upload(message: Message, 
                                   order_temp: Dict[int, Dict[str, Any]], generate_order_id,
                                   format_currency, get_main_menu):
     """Handle screenshot upload for payment verification"""
+    from main import user_state
+    
     if not message.from_user or not message.photo:
         return False
 
@@ -87,7 +152,7 @@ async def handle_screenshot_upload(message: Message, user_state: Dict[int, Dict[
 
         # Send admin notification to group with screenshot
         await send_admin_notification(order_record)
-        
+
         # Also send the screenshot to admin group
         from main import bot
         admin_group_id = -1003009015663
@@ -156,12 +221,14 @@ async def handle_screenshot_upload(message: Message, user_state: Dict[int, Dict[
 
     return False
 
-async def handle_text_input(message: Message, user_state: Dict[int, Dict[str, Any]], 
+async def handle_text_input(message: Message, 
                            users_data: Dict[int, Dict[str, Any]], order_temp: Dict[int, Dict[str, Any]],
                            tickets_data: Dict[str, Dict[str, Any]], is_message_old, 
                            mark_user_for_notification, is_account_created, 
                            format_currency, get_main_menu, OWNER_USERNAME: str):
     """Handle text input for account creation"""
+    from main import user_state
+    
     if not message.from_user or not message.text:
         return
 
@@ -172,13 +239,22 @@ async def handle_text_input(message: Message, user_state: Dict[int, Dict[str, An
 
     user_id = message.from_user.id
 
-    # Handle admin broadcast message input first
+    # Handle admin broadcast message input first (PRIORITY CHECK)
     from services import handle_admin_broadcast_message, is_admin
     if is_admin(user_id):
         current_step = user_state.get(user_id, {}).get("current_step")
+        print(f"🔍 ADMIN DEBUG: User {user_id} current_step: {current_step}")
         if current_step == "admin_broadcast_message":
+            print(f"📢 Processing admin broadcast message from {user_id}")
             await handle_admin_broadcast_message(message, user_id)
             return
+        elif current_step and current_step.startswith("admin_messaging_"):
+            # Handle admin messaging to specific user
+            target_user_id = int(current_step.replace("admin_messaging_", ""))
+            await handle_admin_direct_message(message, user_id, target_user_id)
+            return
+        elif current_step:
+            print(f"🔍 ADMIN DEBUG: Admin {user_id} in step: {current_step}")
 
     # DEBUG: Log current state
     print(f"🔍 DEBUG: User {user_id} sent text: '{message.text}'")
@@ -202,8 +278,14 @@ async def handle_text_input(message: Message, user_state: Dict[int, Dict[str, An
         if matching_user and matching_user == user_id:
             # Phone matches, complete login
             users_data[user_id]['account_created'] = True
-            user_state[user_id]["current_step"] = None
-            user_state[user_id]["data"] = {}
+
+            # Only clear state if it's not an admin broadcast operation
+            current_step = user_state[user_id].get("current_step")
+            if current_step != "admin_broadcast_message":
+                user_state[user_id]["current_step"] = None
+                user_state[user_id]["data"] = {}
+            else:
+                print(f"🔒 PROTECTED: Admin broadcast state preserved for user {user_id}")
 
             # Get user display name for login success
             user_display_name = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name or 'Friend'
@@ -815,6 +897,8 @@ async def handle_text_input(message: Message, user_state: Dict[int, Dict[str, An
             "💡 <b>कृपया valid coupon code try करें या Skip button दबाएं</b>\n\n"
             "🔄 <b>सही coupon code के लिए support से contact करें</b>"
         )
+
+    # Skip if user not in coupon state but has text input
         return
 
     # Handle admin messaging
@@ -903,102 +987,3 @@ async def handle_text_input(message: Message, user_state: Dict[int, Dict[str, An
         return
 
 
-    else:
-        # PROFESSIONAL BOT BEHAVIOR: Ignore all random/unknown messages
-        # Only respond to specific expected inputs during active processes
-
-        # If user has completed account but sent random text, IGNORE completely
-        if is_account_created(user_id):
-            # Check if this is actually a link - treat any link as order continuation
-            if message.text and ("http" in message.text or "www." in message.text or "t.me" in message.text or "instagram.com" in message.text or "youtube.com" in message.text or "facebook.com" in message.text):
-                # This might be a link for ordering - check if we can detect platform
-                link_input = message.text.strip()
-                detected_platform = None
-
-                # Detect platform from link
-                if "instagram.com" in link_input.lower():
-                    detected_platform = "instagram"
-                elif "youtube.com" in link_input.lower() or "youtu.be" in link_input.lower():
-                    detected_platform = "youtube"
-                elif "facebook.com" in link_input.lower() or "fb.com" in link_input.lower():
-                    detected_platform = "facebook"
-                elif "t.me" in link_input.lower() or "telegram.me" in link_input.lower():
-                    detected_platform = "telegram"
-                elif "tiktok.com" in link_input.lower():
-                    detected_platform = "tiktok"
-                elif "twitter.com" in link_input.lower() or "x.com" in link_input.lower():
-                    detected_platform = "twitter"
-                elif "linkedin.com" in link_input.lower():
-                    detected_platform = "linkedin"
-                elif "chat.whatsapp.com" in link_input.lower() or "wa.me" in link_input.lower():
-                    detected_platform = "whatsapp"
-
-                if detected_platform:
-                    # Set up a basic order state with detected platform
-                    user_state[user_id] = {
-                        "current_step": "waiting_quantity",
-                        "data": {
-                            "platform": detected_platform,
-                            "service_id": "AUTO_DETECTED",
-                            "package_name": f"{detected_platform.title()} Service Package",
-                            "package_rate": "₹1.00 per unit",
-                            "link": link_input
-                        }
-                    }
-
-                    # First message - Link received confirmation
-                    success_text = f"""
-✅ <b>Your Link Successfully Received!</b>
-
-🔗 <b>Received Link:</b> {link_input}
-
-📦 <b>Package Info:</b>
-• Platform: {detected_platform.title()}
-• Auto-detected service
-• Standard pricing applicable
-
-💡 <b>Link verification successful! Moving to next step...</b>
-"""
-
-                    await message.answer(success_text)
-
-                    # Second message - Quantity input page
-                    quantity_text = f"""
-📊 <b>Step 3: Enter Quantity</b>
-
-💡 <b>कितनी quantity चाहिए?</b>
-
-📋 <b>Order Details:</b>
-• Package: {detected_platform.title()} Service Package
-• Rate: ₹1.00 per unit
-• Target: {detected_platform.title()}
-
-⚠️ <b>Quantity Guidelines:</b>
-• केवल numbers में भेजें
-• Minimum: 100
-• Maximum: 1,000,000
-• Example: 1000, 5000, 10000
-
-💬 <b>अपनी quantity type करके send करें:</b>
-
-🔢 <b>Example Messages:</b>
-• 1000
-• 5000
-• 10000
-"""
-
-                    await message.answer(quantity_text)
-                    return
-                else:
-                    # Unknown link platform - IGNORE completely instead of responding
-                    print(f"🔇 IGNORED: Unknown link from user {user_id}: {link_input}")
-                    return
-            else:
-                # Random text message from completed account user - IGNORE completely
-                print(f"🔇 IGNORED: Random text from user {user_id}: '{message.text[:50]}...'")
-                return
-        else:
-            # User without account sent random text - IGNORE completely 
-            # They should use /start command or buttons to create account
-            print(f"🔇 IGNORED: Text from unregistered user {user_id}: '{message.text[:50]}...'")
-            return

@@ -1009,7 +1009,7 @@ def get_package_description(platform: str, service_id: str) -> dict:
         ]
     ])
 
-    return {"text": text, "keyboard": keyboard}
+    return {"text": text, "keyboard": keyboard, "package_info": {"name": package_info["name"], "price": package_info["price"]}}
 
 def get_service_packages(platform: str) -> InlineKeyboardMarkup:
     """Get packages for specific platform"""
@@ -1551,21 +1551,16 @@ def register_service_handlers(dp, require_account):
             platform = parts[2]
             service_id = parts[3]
 
-            # Get package details from the description function
-            # package_details = get_package_description(platform, service_id)  # Not used
-
-            # Extract package name and price from the description data
-            package_data = {
-                "5629": {"name": "📷 Instagram Followers - Real & Active", "price": "₹0.45 per follower"},
-                "5630": {"name": "📷 Instagram Followers - Premium Quality", "price": "₹0.65 per follower"},
-                "5631": {"name": "📷 Instagram Followers - High Retention", "price": "₹0.55 per follower"}
-            }
-
-            # Get package info or default
-            pkg_info = package_data.get(service_id, {
-                "name": f"Service Package ID:{service_id}",
-                "price": "₹1.00 per unit"
-            })
+            try:
+                description_data = get_package_description(platform, service_id)
+                pkg_info = description_data.get("package_info", {})
+            except Exception as e:
+                print(f"Warning: Could not get package details for {service_id}: {e}")
+                # Fallback to default if original database fails
+                pkg_info = {
+                    "name": f"Service Package ID:{service_id}",
+                    "price": "₹1.00 per unit"
+                }
 
             # Get example link based on platform
             example_links = {

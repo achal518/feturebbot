@@ -13,7 +13,7 @@ from aiogram.types import (
     Message
 )
 from aiogram import F
-from main import user_state
+from aiogram.fsm.context import FSMContext
 
 # ========== ADMIN CONFIGURATION ==========
 ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID", "7437014244"))  # Main admin user ID from environment
@@ -1540,8 +1540,9 @@ def register_service_handlers(dp, require_account):
         await callback.answer()
 
     @dp.callback_query(F.data.startswith("confirm_order_"))
-    async def cb_confirm_order(callback: CallbackQuery):
+    async def cb_confirm_order(callback: CallbackQuery, state: FSMContext):
         """Handle order confirmation - show package details and description command"""
+        from states import OrderStates
         if not callback.message:
             return
 
@@ -1600,17 +1601,15 @@ def register_service_handlers(dp, require_account):
 💬 <b>अपना link message के रूप में भेजें...</b>
 """
 
-            # Store order data in user state
-            user_id = callback.from_user.id if callback.from_user else 0
-            if user_id not in user_state:
-                user_state[user_id] = {"current_step": None, "data": {}}
-
-            user_state[user_id]["current_step"] = "waiting_link"
-            user_state[user_id]["data"]["service"] = f"{platform}_{service_id}"
-            user_state[user_id]["data"]["platform"] = platform
-            user_state[user_id]["data"]["service_id"] = service_id
-            user_state[user_id]["data"]["package_name"] = pkg_info["name"]
-            user_state[user_id]["data"]["package_rate"] = pkg_info["price"]
+            # Store order data in FSM state
+            await state.update_data(
+                service=f"{platform}_{service_id}",
+                platform=platform,
+                service_id=service_id,
+                package_name=pkg_info["name"],
+                package_rate=pkg_info["price"]
+            )
+            await state.set_state(OrderStates.waiting_link)
 
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [
@@ -1789,7 +1788,7 @@ def register_service_handlers(dp, require_account):
             await callback.answer("⚠️ Access Denied", show_alert=True)
             return
 
-        from main import users_data, init_user
+        from main import users_data, init_user, user_state
         user_id = callback.from_user.id
 
         # Ensure user exists in users_data first
@@ -1999,6 +1998,7 @@ async def handle_admin_broadcast_message(message: Message, user_id: int):
 # Add broadcast confirmation handler
 async def handle_admin_broadcast_confirm(callback: CallbackQuery):
     """Handle broadcast confirmation"""
+    from main import user_state
 
     if not is_admin(callback.from_user.id):
         return
@@ -2104,7 +2104,7 @@ def get_admin_main_menu() -> InlineKeyboardMarkup:
 
 def get_bot_status_info() -> dict:
     """Get comprehensive bot status information"""
-    from main import users_data, orders_data, tickets_data
+    from main import users_data, orders_data, tickets_data, user_state
 
     uptime = format_uptime()
     system_stats = get_system_stats()

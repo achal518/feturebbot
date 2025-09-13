@@ -20,6 +20,8 @@ from aiogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 )
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 # Import modules
@@ -28,6 +30,9 @@ import payment_system
 import services
 import account_creation
 import text_input_handler
+
+from states import OrderStates
+from fsm_handlers import handle_link_input, handle_quantity_input, handle_coupon_input
 
 # ========== CONFIGURATION ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -57,9 +62,10 @@ WEBHOOK_MODE = bool(BASE_WEBHOOK_URL)  # True if webhook URL available, False fo
 WEB_SERVER_HOST = "0.0.0.0"
 WEB_SERVER_PORT = int(os.getenv("PORT", 8080))
 
-# Bot initialization
+# Bot initialization with FSM storage
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
-dp = Dispatcher()
+storage = MemoryStorage()
+dp = Dispatcher(storage=storage)
 START_TIME = time.time()
 
 # Webhook handler setup
@@ -1260,26 +1266,25 @@ async def cb_back_main(callback: CallbackQuery):
     await callback.answer()
 
 @dp.callback_query(F.data == "skip_coupon")
-async def cb_skip_coupon(callback: CallbackQuery):
+async def cb_skip_coupon(callback: CallbackQuery, state: FSMContext):
     """Handle skip coupon and show confirmation"""
     if not callback.message or not callback.from_user:
         return
 
-    user_id = callback.from_user.id
-
-    # Check if user has order data
-    if user_id not in user_state or user_state[user_id].get("current_step") != "waiting_coupon":
+    # Get FSM data - check current state
+    current_state = await state.get_state()
+    if current_state != OrderStates.waiting_coupon.state:
         await callback.answer("⚠️ Order data not found!")
         return
 
-    # Get all order details
-    order_data = user_state[user_id]["data"]
-    package_name = order_data.get("package_name", "Unknown Package")
-    service_id = order_data.get("service_id", "")
-    platform = order_data.get("platform", "")
-    package_rate = order_data.get("package_rate", "₹1.00 per unit")
-    link = order_data.get("link", "")
-    quantity = order_data.get("quantity", 0)
+    # Get all order details from FSM
+    data = await state.get_data()
+    package_name = data.get("package_name", "Unknown Package")
+    service_id = data.get("service_id", "")
+    platform = data.get("platform", "")
+    package_rate = data.get("package_rate", "₹1.00 per unit")
+    link = data.get("link", "")
+    quantity = data.get("quantity", 0)
 
     # Calculate total price (simplified calculation for demo)
     # Extract numeric part from rate for calculation
@@ -1291,7 +1296,7 @@ async def cb_skip_coupon(callback: CallbackQuery):
         except (ValueError, IndexError):
             rate_num = 1.0
 
-    total_price = rate_num * quantity
+    total_price = (rate_num / 1000) * quantity
 
     # Show confirmation page
     confirmation_text = f"""
@@ -1318,9 +1323,8 @@ async def cb_skip_coupon(callback: CallbackQuery):
 ⚠️ <b>Cancel करने पर main menu पर वापस चले जाएंगे</b>
 """
 
-    # Store total price in order data
-    user_state[user_id]["data"]["total_price"] = total_price
-    user_state[user_id]["current_step"] = "confirming_order"
+    # Store total price in FSM data (keep state for final confirmation)
+    await state.update_data(total_price=total_price)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -1333,20 +1337,19 @@ async def cb_skip_coupon(callback: CallbackQuery):
     await callback.answer()
 
 @dp.callback_query(F.data == "final_confirm_order")
-async def cb_final_confirm_order(callback: CallbackQuery):
+async def cb_final_confirm_order(callback: CallbackQuery, state: FSMContext):
     """Handle final order confirmation with balance check and payment options"""
     if not callback.message or not callback.from_user:
         return
 
     user_id = callback.from_user.id
 
-    # Check if user has order data
-    if user_id not in user_state or user_state[user_id].get("current_step") != "confirming_order":
-        await callback.answer("⚠️ Order data not found!")
+    # Get order details from FSM state
+    order_data = await state.get_data()
+    if not order_data or not order_data.get("service_id"):
+        await callback.answer("⚠️ Order data not found in FSM! Please start over.", show_alert=True)
+        await state.clear()
         return
-
-    # Get order details
-    order_data = user_state[user_id]["data"]
     package_name = order_data.get("package_name", "Unknown Package")
     service_id = order_data.get("service_id", "")
     link = order_data.get("link", "")
@@ -1400,7 +1403,8 @@ async def cb_final_confirm_order(callback: CallbackQuery):
             ]
         ])
 
-        user_state[user_id]["current_step"] = "selecting_payment"
+        # Set FSM state for payment selection and keep order data
+        await state.set_state(OrderStates.selecting_payment)
         await safe_edit_message(callback, payment_text, keyboard)
 
     else:
@@ -1445,26 +1449,33 @@ async def cb_final_confirm_order(callback: CallbackQuery):
             ]
         ])
 
-        user_state[user_id]["current_step"] = "choosing_payment_option"
+        # Keep FSM state and data for when user returns after adding funds
         await safe_edit_message(callback, balance_message, balance_keyboard)
 
     await callback.answer()
 
 @dp.callback_query(F.data == "payment_qr")
-async def cb_payment_qr(callback: CallbackQuery):
+async def cb_payment_qr(callback: CallbackQuery, state: FSMContext):
     """Handle QR code payment method - Fixed to work properly"""
     if not callback.message or not callback.from_user:
         return
 
     user_id = callback.from_user.id
 
-    # Check if user has order data
-    if user_id not in user_state or user_state[user_id].get("current_step") != "selecting_payment":
-        await callback.answer("⚠️ Order data not found!")
+    # Check if user has order data in FSM
+    current_state = await state.get_state()
+    if current_state != OrderStates.selecting_payment.state:
+        await callback.answer("⚠️ Order session expired! Please start over.", show_alert=True)
+        await state.clear()
         return
 
-    # Get order details
-    order_data = user_state[user_id]["data"]
+    # Get order details from FSM
+    order_data = await state.get_data()
+    if not order_data.get("service_id"):
+        await callback.answer("⚠️ Order data not found! Please start over.", show_alert=True)
+        await state.clear()
+        return
+        
     total_price = order_data.get("total_price", 0.0)
 
     # Generate transaction ID
@@ -1472,9 +1483,8 @@ async def cb_payment_qr(callback: CallbackQuery):
     import random
     transaction_id = f"QR{int(time.time())}{random.randint(100, 999)}"
 
-    # Set user state to waiting for screenshot
-    user_state[user_id]["current_step"] = "waiting_screenshot_upload"
-    user_state[user_id]["data"]["transaction_id"] = transaction_id
+    # Store transaction in FSM and keep order data
+    await state.update_data(transaction_id=transaction_id, payment_method="qr")
 
     # Show QR payment with proper buttons
     qr_text = f"""
@@ -1659,95 +1669,81 @@ async def cb_add_balance_first(callback: CallbackQuery):
     await callback.answer()
 
 @dp.callback_query(F.data == "direct_payment_emergency")
-async def cb_direct_payment_emergency(callback: CallbackQuery):
+async def cb_direct_payment_emergency(callback: CallbackQuery, state: FSMContext):
     """Handle direct payment option - show payment methods directly"""
     if not callback.message or not callback.from_user:
         return
 
-    user_id = callback.from_user.id
+    try:
+        user_id = callback.from_user.id
+        order_data = await state.get_data()
 
-    # Check if user has order data
-    if user_id not in user_state or user_state[user_id].get("current_step") != "choosing_payment_option":
-        await callback.answer("⚠️ Order data not found!")
-        return
+        if not order_data or not order_data.get("service_id"):
+            await callback.answer("⚠️ Order data could not be found. Please start a new order.", show_alert=True)
+            await state.clear()
+            return
 
-    # Get order details
-    order_data = user_state[user_id]["data"]
-    package_name = order_data.get("package_name", "Unknown Package")
-    link = order_data.get("link", "")
-    quantity = order_data.get("quantity", 0)
-    total_price = order_data.get("total_price", 0.0)
-    platform = order_data.get("platform", "")
+        package_name = order_data.get("package_name", "Unknown Package")
+        link = order_data.get("link", "")
+        quantity = order_data.get("quantity", 0)
+        total_price = order_data.get("total_price", 0.0)
+        platform = order_data.get("platform", "")
 
-    from datetime import datetime
-    current_date = datetime.now().strftime("%d %b %Y, %I:%M %p")
+        from datetime import datetime
+        current_date = datetime.now().strftime("%d %b %Y, %I:%M %p")
 
-    emergency_payment_text = f"""
+        emergency_payment_text = f"""
 ⚡️ <b>Direct Payment (Emergency Mode)</b>
-
 🚨 <b>Emergency Order Processing</b>
-
 📅 <b>Date:</b> {current_date}
 📦 <b>Package:</b> {package_name}
 🌐 <b>Platform:</b> {platform.title()}
 🔗 <b>Target:</b> {link[:50]}...
 📊 <b>Quantity:</b> {quantity:,}
 💰 <b>Total Amount:</b> ₹{total_price:,.2f}
-
-💳 <b>Available Payment Methods:</b>
-
-🎯 <b>सभी payment methods available हैं:</b>
-
-🔥 <b>Instant Payment Features:</b>
-• ⚡️ QR Code scan करके pay करें
-• 💳 UPI से direct transfer
-• 🏦 Bank transfer options
-• 📱 All UPI apps supported
-
 💡 <b>अपना preferred payment method चुनें:</b>
 """
 
-    emergency_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="⚡️ Quick QR Payment", callback_data="payment_qr"),
-            InlineKeyboardButton(text="📱 UPI Payment", callback_data="payment_upi")
-        ],
-        [
-            InlineKeyboardButton(text="📲 Open UPI App", callback_data="payment_app"),
-            InlineKeyboardButton(text="🏦 Bank Transfer", callback_data="payment_bank")
-        ],
-        [
-            InlineKeyboardButton(text="💸 Digital Wallets", callback_data="payment_wallet"),
-            InlineKeyboardButton(text="💰 Net Banking", callback_data="payment_netbanking")
-        ],
-        [
-            InlineKeyboardButton(text="💳 Card Payment", callback_data="payment_card")
-        ],
-        [
-            InlineKeyboardButton(text="⬅️ Back to Options", callback_data="final_confirm_order")
-        ]
-    ])
+        emergency_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="⚡️ Quick QR Payment", callback_data="payment_qr"),
+                InlineKeyboardButton(text="📱 UPI Payment", callback_data="payment_upi")
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ Back to Options", callback_data="final_confirm_order")
+            ]
+        ])
 
-    user_state[user_id]["current_step"] = "selecting_payment"
+        await state.set_state(OrderStates.selecting_payment)
+        await safe_edit_message(callback, emergency_payment_text, emergency_keyboard)
 
-    await safe_edit_message(callback, emergency_payment_text, emergency_keyboard)
+    except Exception as e:
+        print(f"CRITICAL ERROR in cb_direct_payment_emergency: {e}")
+        await callback.answer("An error occurred. Please try again.", show_alert=True)
+
     await callback.answer()
 
 @dp.callback_query(F.data == "pay_from_balance")
-async def cb_pay_from_balance(callback: CallbackQuery):
+async def cb_pay_from_balance(callback: CallbackQuery, state: FSMContext):
     """Handle payment from account balance"""
     if not callback.message or not callback.from_user:
         return
 
     user_id = callback.from_user.id
 
-    # Check if user has order data
-    if user_id not in user_state:
-        await callback.answer("⚠️ Order data not found!")
+    # Check if user has order data in FSM
+    current_state = await state.get_state()
+    if current_state != OrderStates.selecting_payment.state:
+        await callback.answer("⚠️ Order session expired! Please start over.", show_alert=True)
+        await state.clear()
         return
 
-    # Get order details
-    order_data = user_state[user_id]["data"]
+    # Get order details from FSM
+    order_data = await state.get_data()
+    if not order_data.get("service_id"):
+        await callback.answer("⚠️ Order data not found! Please start over.", show_alert=True)
+        await state.clear()
+        return
     package_name = order_data.get("package_name", "Unknown Package")
     service_id = order_data.get("service_id", "")
     link = order_data.get("link", "")
@@ -1787,15 +1783,13 @@ async def cb_pay_from_balance(callback: CallbackQuery):
         'payment_status': 'completed'
     }
 
-    # Store order in both temp and permanent storage
-    order_temp[user_id] = order_record
-    orders_data[order_id] = order_record  # Also store in permanent orders_data
+    # Store order in permanent storage
+    orders_data[order_id] = order_record
 
-    print(f"✅ Order {order_id} stored in both temp and permanent storage")
+    print(f"✅ Order {order_id} completed and stored")
 
-    # Clear user state
-    user_state[user_id]["current_step"] = None
-    user_state[user_id]["data"] = {}
+    # Clear FSM state as order is complete
+    await state.clear()
 
     # Success message with improved format
     new_balance = users_data[user_id]['balance']
@@ -3981,9 +3975,27 @@ async def cb_admin_processing(callback: CallbackQuery):
 # Account creation functionality successfully moved to account_creation.py
 # Bot handlers properly organized below
 
+# ========== FSM MESSAGE HANDLERS ==========
+@dp.message(OrderStates.waiting_link)
+async def on_link_input(message: Message, state: FSMContext):
+    """Handle link input in FSM waiting_link state"""
+    print(f"🎯 FSM HANDLER: Processing link input for user {message.from_user.id if message.from_user else 'Unknown'}")
+    print(f"🎯 FSM HANDLER: Received link: {message.text}")
+    await handle_link_input(message, state)
+
+@dp.message(OrderStates.waiting_quantity)
+async def on_quantity_input(message: Message, state: FSMContext):
+    """Handle quantity input in FSM waiting_quantity state"""
+    await handle_quantity_input(message, state)
+
+@dp.message(OrderStates.waiting_coupon)
+async def on_coupon_input(message: Message, state: FSMContext):
+    """Handle coupon input in FSM waiting_coupon state"""
+    await handle_coupon_input(message, state)
+
 # ========== INPUT HANDLERS ==========
 @dp.message(F.text)
-async def handle_text_input_wrapper(message: Message):
+async def handle_text_input_wrapper(message: Message, state: FSMContext):
     """Wrapper for text input handler - first check account creation, then other handlers"""
     if not message.from_user:
         return
@@ -3993,12 +4005,20 @@ async def handle_text_input_wrapper(message: Message):
         mark_user_for_notification(message.from_user.id)
         return
 
-    # Check if user is in account creation flow
     user_id = message.from_user.id
+
+    # PRIORITY CHECK: If user is in FSM state, let FSM handlers process it
+    fsm_state = await state.get_state()
+    if fsm_state:
+        print(f"🔍 FSM DEBUG: User {user_id} is in FSM state: {fsm_state} - skipping generic handler")
+        return  # Let dedicated FSM handlers handle this
+
+    # Check if user is in account creation flow (legacy user_state)
     current_step = user_state.get(user_id, {}).get("current_step")
 
     print(f"🔍 TEXT DEBUG: User {user_id} sent text: '{message.text[:50]}...'")
     print(f"🔍 TEXT DEBUG: User {user_id} current_step: {current_step}")
+    print(f"🔍 FSM DEBUG: User {user_id} FSM state: {fsm_state}")
 
     # PRIORITY: Check for admin broadcast first
     from services import handle_admin_broadcast_message, is_admin
@@ -4140,6 +4160,8 @@ async def handle_contact_input(message: Message):
     from account_creation import handle_contact_sharing
     await handle_contact_sharing(message)
 
+
+# FSM handlers moved above to line 3988 - duplicates removed
 
 # ========== STARTUP FUNCTIONS ==========
 async def on_startup():

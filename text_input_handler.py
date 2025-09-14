@@ -146,9 +146,12 @@ async def handle_screenshot_upload(message: Message,
         }
 
         # Store order in both temp and permanent storage
-        from main import orders_data, send_admin_notification
+        from main import orders_data, send_admin_notification, save_data_to_json
         order_temp[user_id] = order_record
         orders_data[order_id] = order_record  # Also store in permanent orders_data
+
+        # Save order data to persistent storage
+        save_data_to_json(orders_data, "orders.json")
 
         print(f"✅ Screenshot order {order_id} stored in both temp and permanent storage")
 
@@ -280,6 +283,10 @@ async def handle_text_input(message: Message,
         if matching_user and matching_user == user_id:
             # Phone matches, complete login
             users_data[user_id]['account_created'] = True
+
+            # Save user data to persistent storage
+            from main import save_data_to_json
+            save_data_to_json(users_data, "users.json")
 
             # Only clear state if it's not an admin broadcast operation
             current_step = user_state[user_id].get("current_step")
@@ -711,6 +718,10 @@ async def handle_text_input(message: Message,
             "email": validated_email,
             "account_created": True
         })
+
+        # Save user data to persistent storage
+        from main import save_data_to_json
+        save_data_to_json(users_data, "users.json")
 
         # Clear user state
         user_state[user_id]["current_step"] = None

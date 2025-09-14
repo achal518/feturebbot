@@ -216,7 +216,7 @@ def get_package_description(platform: str, service_id: str) -> dict:
             "delivery_time": "12-24 hours start, 5-7 days completion",
             "quality": "Basic Quality Users",
             "description": "Budget-friendly Instagram followers for beginners. Perfect for those who want to increase their follower count without spending much. Basic quality accounts with minimal profile pictures.",
-            "features": ["✅ Real Accounts", "✅ Safe Methods", "✅ Slow & Steady Growth", "✅ Email Support Only", "✅ 60% Retention Rate", "⚠️ No Refill Guarantee"]
+            "features": ["✅ Real Accounts", "✅ Saf Methods", "✅ Slow & Steady Growth", "✅ Email Support Only", "✅ 60% Retention Rate", "⚠️ No Refill Guarantee"]
         },
         "2002": {
             "name": "👥 Instagram Followers - 📈 Standard",

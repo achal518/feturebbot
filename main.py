@@ -1090,21 +1090,19 @@ async def cb_new_order(callback: CallbackQuery):
     from services import get_services_main_menu
 
     text = """
-🚀 <b>New Order - Service Selection</b>
+🚀 b>New Order Portal</b>
 
-🎯 <b>Choose Your Platform</b>
+Welcome! Here you can order powerful growth services for your social media accounts.
 
-💎 <b>Premium Quality Services Available:</b>
-✅ Real & Active Users Only
-✅ High Retention Rate
-✅ Fast Delivery (0-6 Hours)
-✅ 24/7 Customer Support
-✅ Secure & Safe Methods
+Our system guarantees:
 
-🔒 <b>100% Money Back Guarantee</b>
-⚡️ <b>Instant Start Guarantee</b>
+<b>Choice &amp; Variety:</b> Packages of different qualities (from Economy to VIP) to suit every budget and need.
 
-💡 <b>कृपया अपना platform चुनें:</b>
+<b>Transparency:</b> Full details on each package's speed, quality, and guarantee will be clearly provided at the time of selection.
+
+<b>Security:</b> All payments and transactions are 100% safe and secure.
+
+💡<b>Let's get started. Please choose your platform below:</b>
 """
 
     await safe_edit_message(callback, text, get_services_main_menu())

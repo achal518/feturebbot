@@ -5,6 +5,7 @@ Advanced Telegram Bot for Social Media Marketing Services
 """
 
 import asyncio
+import json
 import os
 import random
 import string
@@ -96,6 +97,31 @@ admin_users = {ADMIN_USER_ID}  # Use consistent admin user ID
 # Handler registration flag - not needed
 # _handlers_registered = False
 
+# ========== PERSISTENT STORAGE FUNCTIONS ==========
+def save_data_to_json(data: Dict, filename: str) -> None:
+    """Save data dictionary to JSON file"""
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False, default=str)
+        print(f"✅ Data saved to {filename}")
+    except Exception as e:
+        print(f"❌ Error saving data to {filename}: {e}")
+
+def load_data_from_json(filename: str) -> Dict:
+    """Load data from JSON file, return empty dict if file doesn't exist"""
+    try:
+        if os.path.exists(filename):
+            with open(filename, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            print(f"✅ Data loaded from {filename}")
+            return data
+        else:
+            print(f"📄 File {filename} not found, starting with empty data")
+            return {}
+    except Exception as e:
+        print(f"❌ Error loading data from {filename}: {e}")
+        return {}
+
 # ========== CORE FUNCTIONS ==========
 def init_user(user_id: int, username: Optional[str] = None, first_name: Optional[str] = None) -> None:
     """Initialize user data if not exists"""
@@ -118,6 +144,8 @@ def init_user(user_id: int, username: Optional[str] = None, first_name: Optional
             "email": "",
             "profile_photo": None # Added for profile photo
         }
+        # Save users data to persistent storage
+        save_data_to_json(users_data, "users.json")
 
     # Initialize user state for input tracking
     if user_id not in user_state:
@@ -166,7 +194,7 @@ def is_message_old(message: Message) -> bool:
     message_timestamp = message.date.timestamp()
     return message_timestamp < START_TIME
 
-async def send_admin_notification(order_record: Dict[str, Any]):
+async def send_admin_notification(order_record: Dict[str, Any], photo_file_id: Optional[str] = None):
     """Send enhanced notification to admin group about a new order"""
     # Group ID where notifications will be sent
     admin_group_id = -1003009015663
@@ -242,22 +270,41 @@ async def send_admin_notification(order_record: Dict[str, Any]):
 👉 <b>Please check for context</b>"""
 
         # Enhanced management buttons for professional order handling
-        management_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text="✅ Complete Order", callback_data=f"admin_complete_{order_id}"),
-                InlineKeyboardButton(text="❌ Cancel Order", callback_data=f"admin_cancel_{order_id}")
-            ],
-            [
-                InlineKeyboardButton(text="💬 Send Message", callback_data=f"admin_message_{user_id}"),
-                InlineKeyboardButton(text="👤 User Details", callback_data=f"admin_profile_{user_id}")
-            ],
-            [
+        keyboard_rows = []
+        
+        # Only add Complete/Cancel buttons when order_id is present and valid
+        if order_id and order_id != "None":
+            keyboard_rows.append([
+                InlineKeyboardButton(text="✅ Complete Order", callback_data=f"admin_complete_{order_id}_{user_id}"),
+                InlineKeyboardButton(text="❌ Cancel Order", callback_data=f"admin_cancel_{order_id}_{user_id}")
+            ])
+        
+        # Always add user management buttons
+        keyboard_rows.append([
+            InlineKeyboardButton(text="💬 Send Message", callback_data=f"admin_message_{user_id}"),
+            InlineKeyboardButton(text="👤 User Details", callback_data=f"admin_profile_{user_id}")
+        ])
+        
+        # Add order-specific buttons only when order_id is present and valid
+        if order_id and order_id != "None":
+            keyboard_rows.append([
                 InlineKeyboardButton(text="📊 Order Details", callback_data=f"admin_details_{order_id}"),
                 InlineKeyboardButton(text="🔄 Refresh Status", callback_data=f"admin_refresh_{order_id}")
-            ]
-        ])
+            ])
+            
+        management_keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
         await bot.send_message(admin_group_id, message_text, parse_mode="HTML", reply_markup=management_keyboard)
+
+        # If a photo_file_id is provided, send the photo as well
+        if photo_file_id:
+            await bot.send_photo(
+                chat_id=admin_group_id,
+                photo=photo_file_id,
+                caption=f"📸 Payment Screenshot for Order ID: <code>{order_record.get('order_id')}</code>",
+                parse_mode="HTML"
+            )
+
         print(f"✅ Enhanced group notification sent for Order ID: {order_id or 'Screenshot Upload'}")
 
     except Exception as e:
@@ -652,6 +699,8 @@ async def cmd_start(message: Message):
         users_data[user.id]['email'] = "admin@indiasocialpanel.com"
         users_data[user.id]['phone_number'] = "+91XXXXXXXXXX"
         print(f"🔧 Auto-completed admin account for user {user.id}")
+        # Save admin account data to persistent storage
+        save_data_to_json(users_data, "users.json")
 
     # Check if account is created
     if is_account_created(user.id):
@@ -819,6 +868,85 @@ async def cmd_description(message: Message):
         await message.answer(text, reply_markup=get_main_menu())
 
 # ========== PHOTO HANDLERS ==========
+@dp.message(OrderStates.waiting_screenshot, F.photo)
+async def handle_screenshot_fsm(message: Message, state: FSMContext):
+    """Handle the screenshot sent by the user using FSM."""
+    if not message.from_user or not message.photo:
+        await state.clear()
+        return
+
+    try:
+        user_id = message.from_user.id
+        order_data = await state.get_data()
+
+        if not order_data.get("service_id"):
+            await message.answer("⚠️ Order data could not be found. Please start a new order.")
+            await state.clear()
+            return
+
+        # Generate order ID
+        order_id = generate_order_id() # Assumes this function is available in the file
+
+        # Create final order record from FSM data
+        order_record = {
+            'order_id': order_id,
+            'user_id': user_id,
+            'package_name': order_data.get("package_name", "N/A"),
+            'service_id': order_data.get("service_id", "N/A"),
+            'platform': order_data.get("platform", "N/A"),
+            'link': order_data.get("link", "N/A"),
+            'quantity': order_data.get("quantity", 0),
+            'total_price': order_data.get("total_price", 0.0),
+            'status': 'processing',
+            'created_at': datetime.now().isoformat(),
+            'payment_method': 'QR Code Screenshot',
+            'payment_status': 'pending_verification'
+        }
+
+        # Store the final order
+        from main import orders_data, send_admin_notification
+        orders_data[order_id] = order_record
+
+        # Save order data to persistent storage
+        save_data_to_json(orders_data, "orders.json")
+
+        # Send notification to admin group
+        await send_admin_notification(order_record, message.photo[-1].file_id)
+
+        # Send confirmation to user
+        success_text = f"""
+🎉 <b>Order Successfully Placed!</b>
+
+✅ <b>Payment Screenshot Received!</b>
+
+🆔 <b>Order ID:</b> <code>{order_id}</code>
+📦 <b>Package:</b> {order_record['package_name']}
+🔢 <b>Quantity:</b> {order_record['quantity']:,}
+💰 <b>Amount:</b> {format_currency(order_record['total_price'])}
+
+📋 <b>Order Status:</b> ⏳ Processing
+🔄 <b>Payment Status:</b> Pending Verification
+
+💡 <b>Your order will be completed after verification.</b>
+"""
+
+        success_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📜 Order History", callback_data="order_history"),
+                InlineKeyboardButton(text="🚀 New Order", callback_data="new_order")
+            ]
+        ])
+
+        await message.answer(success_text, reply_markup=success_keyboard)
+
+    except Exception as e:
+        print(f"CRITICAL ERROR in handle_screenshot_fsm: {e}")
+        await message.answer("An error occurred while processing your order. Please contact support.")
+
+    finally:
+        # Clear the state to finish the conversation
+        await state.clear()
+
 @dp.message(F.photo)
 async def handle_photo_message(message: Message):
     """Handle photo uploads (for screenshots, etc.)"""
@@ -1475,7 +1603,7 @@ async def cb_payment_qr(callback: CallbackQuery, state: FSMContext):
         await callback.answer("⚠️ Order data not found! Please start over.", show_alert=True)
         await state.clear()
         return
-        
+
     total_price = order_data.get("total_price", 0.0)
 
     # Generate transaction ID
@@ -1785,6 +1913,10 @@ async def cb_pay_from_balance(callback: CallbackQuery, state: FSMContext):
 
     # Store order in permanent storage
     orders_data[order_id] = order_record
+
+    # Save updated data to persistent storage
+    save_data_to_json(users_data, "users.json")
+    save_data_to_json(orders_data, "orders.json")
 
     print(f"✅ Order {order_id} completed and stored")
 
@@ -2427,6 +2559,10 @@ async def cb_confirm_order(callback: CallbackQuery):
     users_data[user_id]['balance'] -= price
     users_data[user_id]['total_spent'] += price
     users_data[user_id]['orders_count'] += 1
+
+    # Save updated data to persistent storage
+    save_data_to_json(users_data, "users.json")
+    save_data_to_json(orders_data, "orders.json")
 
     # Clear temp order
     del order_temp[user_id]
@@ -3453,57 +3589,106 @@ async def cb_admin_complete_order(callback: CallbackQuery):
         await callback.answer("❌ Unauthorized access!", show_alert=True)
         return
 
-    order_id = callback.data.replace("admin_complete_", "")
-
-    # Get order details - check all possible sources  
-    global orders_data, order_temp
-    print(f"🔍 DEBUG: Complete Order - Looking for order {order_id}")
-    print(f"🔍 DEBUG: Complete Order - Global orders_data has {len(orders_data)} orders")
-    print(f"🔍 DEBUG: Complete Order - Available orders: {list(orders_data.keys())}")
-
-    # Check if we can access the order from different sources
-    order_found = False
-    order = None
-
-    if order_id in orders_data:
-        order = orders_data[order_id]
-        order_found = True
-        print(f"✅ DEBUG: Order found in global orders_data")
-    else:
-        # Check order_temp for recent orders
-        for temp_order in order_temp.values():
-            if temp_order.get('order_id') == order_id:
-                order = temp_order
-                order_found = True
-                print(f"✅ DEBUG: Order found in order_temp")
-                # Also store it back in orders_data
-                orders_data[order_id] = temp_order
-                break
-
-    if not order_found:
-        await callback.answer("❌ Order not found in any storage!", show_alert=True)
+    # Step 1: Parse smart callback data to get order_id and customer_id
+    callback_parts = callback.data.replace("admin_complete_", "").split("_")
+    order_id = callback_parts[0] if len(callback_parts) > 0 else None
+    customer_id = None
+    
+    if len(callback_parts) >= 2:
+        try:
+            customer_id = int(callback_parts[1])
+            print(f"🔍 DEBUG: Message Parsing Method - Order ID: {order_id}, Customer ID: {customer_id}")
+        except (ValueError, IndexError):
+            await callback.answer("❌ Invalid button data format!", show_alert=True)
+            return
+    
+    if not order_id or not customer_id:
+        await callback.answer("❌ Missing order or customer ID!", show_alert=True)
         return
-    customer_id = order['user_id']
-    # Get customer name from users_data instead of order
-    customer_info = users_data.get(customer_id, {})
-    customer_name = customer_info.get('full_name') or customer_info.get('first_name', 'Customer')
-    package_name = order['package_name']
-    platform = order['platform']
-    quantity = order['quantity']
-    total_price = order['total_price']
 
-    # Update order status
-    orders_data[order_id]['status'] = 'completed'
-    orders_data[order_id]['completed_at'] = datetime.now().isoformat()
-    orders_data[order_id]['completed_by_admin'] = user_id
+    # Step 2: Get and parse the admin notification message text (stateless approach)
+    message_text = callback.message.text or callback.message.caption or ""
+    if not message_text:
+        await callback.answer("❌ Cannot read message content for parsing!", show_alert=True)
+        return
 
-    # Update user's order count and spending - enhanced with validation
-    if customer_id in users_data:
-        users_data[customer_id]['orders_count'] = users_data[customer_id].get('orders_count', 0) + 1
-        users_data[customer_id]['total_spent'] = users_data[customer_id].get('total_spent', 0.0) + total_price
-        print(f"✅ DEBUG: Updated user {customer_id} stats - Orders: {users_data[customer_id]['orders_count']}, Spent: ₹{users_data[customer_id]['total_spent']}")
+    print(f"🔍 DEBUG: Parsing message text for order details (no database lookup needed)...")
+    print(f"📝 DEBUG: Message text content:\n{message_text}")
+    print(f"📝 DEBUG: Message text length: {len(message_text)}")
+
+    # Step 3: Parse all order details from message using regex patterns
+    import re
+    
+    # Extract Customer Name: look for "• 👤 Name: {value}" (plain text, no HTML)
+    name_match = re.search(r"• 👤 Name:\s*(.+)", message_text)
+    customer_name = name_match.group(1).strip() if name_match else "Customer"
+    
+    # Extract Package Name: look for "• 📦 Package: {value}" (plain text, no HTML)
+    package_match = re.search(r"• 📦 Package:\s*(.+)", message_text)
+    package_name = package_match.group(1).strip() if package_match else "Unknown Package"
+    
+    # Extract Platform: look for "• 📱 Platform: {value}" (plain text, no HTML)  
+    platform_match = re.search(r"• 📱 Platform:\s*(.+)", message_text)
+    platform = platform_match.group(1).strip() if platform_match else "Unknown"
+    
+    # Extract Quantity: look for "• 🔢 Quantity: {value}" (plain text, no HTML)
+    quantity_match = re.search(r"• 🔢 Quantity:\s*(.+)", message_text)
+    quantity_str = quantity_match.group(1).strip() if quantity_match else "0"
+    # Remove commas and convert to int for proper formatting
+    try:
+        quantity = int(quantity_str.replace(",", ""))
+    except (ValueError, AttributeError):
+        quantity = 0
+    
+    # Extract Amount: look for "• 💰 Amount: ₹{value}" (plain text, no HTML)
+    amount_match = re.search(r"• 💰 Amount:\s*₹(.+)", message_text)
+    amount_str = amount_match.group(1).strip() if amount_match else "0.00"
+    # Remove commas and convert to float for proper formatting
+    try:
+        total_price = float(amount_str.replace(",", ""))
+    except (ValueError, AttributeError):
+        total_price = 0.0
+    
+    print(f"✅ DEBUG: Parsed details - Customer: {customer_name}, Package: {package_name}, Platform: {platform}, Quantity: {quantity}, Amount: ₹{total_price}")
+
+    # Step 4: Optional minimal tracking (can be removed for pure stateless approach)
+    # Only store completion record for optional tracking purposes
+    completion_record = {
+        'order_id': order_id,
+        'status': 'completed',
+        'completed_at': datetime.now().isoformat(),
+        'completed_by_admin': user_id,
+        'user_id': customer_id,        # CRITICAL FIX: Use user_id not customer_id
+        'customer_id': customer_id,    # Keep both for compatibility
+        'package_name': package_name,
+        'platform': platform,
+        'quantity': quantity,
+        'total_price': total_price
+    }
+    
+    # CRITICAL: Update ALL data sources for consistency
+    orders_data[order_id] = completion_record
+    save_data_to_json(orders_data, "orders.json")
+    
+    # CRITICAL: Force reload fresh data from file to sync memory
+    print(f"🔄 DEBUG: Force reloading orders_data from file for consistency...")
+    fresh_orders_data = load_data_from_json("orders.json")
+    orders_data.clear()
+    orders_data.update(fresh_orders_data)
+    print(f"✅ DEBUG: orders_data reloaded - Now has {len(orders_data)} orders")
+    
+    # Also update order_temp if it exists
+    if customer_id in order_temp and order_temp[customer_id].get('order_id') == order_id:
+        print(f"🔧 DEBUG: Also updating order_temp for consistency...")
+        order_temp[customer_id]['status'] = 'completed'
+        order_temp[customer_id]['completed_at'] = datetime.now().isoformat()
+        order_temp[customer_id]['completed_by_admin'] = user_id
+        print(f"✅ DEBUG: order_temp updated - Status: {order_temp[customer_id]['status']}")
     else:
-        print(f"⚠️ DEBUG: Customer {customer_id} not found in users_data during order completion")
+        print(f"🔍 DEBUG: order_temp not found for customer {customer_id} or different order_id")
+    
+    print(f"✅ DEBUG: Stateless completion - parsed all details from message text!")
+    print(f"📊 DEBUG: Final status in orders_data[{order_id}]: {orders_data.get(order_id, {}).get('status', 'NOT_FOUND')}")
 
     # Send completion message to customer
     customer_message = f"""
@@ -3598,9 +3783,74 @@ async def cb_admin_cancel_order(callback: CallbackQuery):
         await callback.answer("❌ Unauthorized access!", show_alert=True)
         return
 
-    order_id = callback.data.replace("admin_cancel_", "")
+    # Parse callback_data - support both legacy and smart formats
+    callback_parts = callback.data.replace("admin_cancel_", "").split("_")
+    order_id = callback_parts[0] if len(callback_parts) > 0 else None
+    customer_id = None
+    
+    if len(callback_parts) >= 2:
+        # Smart format: admin_cancel_{order_id}_{customer_id}
+        try:
+            customer_id = int(callback_parts[1])
+            print(f"🔍 DEBUG: Smart Cancel Button - Order ID: {order_id}, Customer ID: {customer_id}")
+        except (ValueError, IndexError):
+            await callback.answer("❌ Invalid button data format!", show_alert=True)
+            return
+    else:
+        # Legacy format: admin_cancel_{order_id} - will work without customer_id for cancel menu
+        print(f"🔍 DEBUG: Legacy Cancel Button - Order ID: {order_id}")
 
-    # Show cancellation reason options
+    if not order_id:
+        await callback.answer("❌ Missing order ID!", show_alert=True)
+        return
+
+    # Parse admin notification message text to get order details (same as Complete Order)
+    message_text = callback.message.text or callback.message.caption or ""
+    if not message_text:
+        await callback.answer("❌ Cannot read message content for parsing!", show_alert=True)
+        return
+
+    print(f"🔍 DEBUG: Cancel Order Step 1 - Parsing message text for order details...")
+    print(f"📝 DEBUG: Message text length: {len(message_text)} chars")
+
+    # Parse all order details from message using regex patterns (same as Complete Order)
+    import re
+    
+    # Extract Customer Name
+    name_match = re.search(r"• 👤 Name:\s*(.+)", message_text)
+    customer_name = name_match.group(1).strip() if name_match else "Customer"
+    
+    # Extract Package Name  
+    package_match = re.search(r"• 📦 Package:\s*(.+)", message_text)
+    package_name = package_match.group(1).strip() if package_match else "Unknown Package"
+    
+    # Extract Amount
+    amount_match = re.search(r"• 💰 Amount:\s*₹(.+)", message_text)
+    total_price = 0.0
+    if amount_match:
+        amount_str = amount_match.group(1).strip()
+        try:
+            total_price = float(amount_str.replace(",", ""))
+        except (ValueError, AttributeError):
+            total_price = 0.0
+            
+    print(f"✅ DEBUG: Cancel Order Step 1 - Parsed details: {customer_name}, {package_name}, ₹{total_price}")
+
+    # Store parsed details in orders_data for step 2 to access
+    orders_data[order_id] = {
+        'order_id': order_id,
+        'user_id': customer_id,
+        'status': 'pending',
+        'package_name': package_name,
+        'total_price': total_price,
+        'customer_name': customer_name,  # Add customer name too
+        'parsed_from_message': True  # Flag to indicate this was parsed
+    }
+    
+    # Save updated order data 
+    save_data_to_json(orders_data, "orders.json")
+
+    # Show cancellation reason options with smart button format
     cancel_text = f"""
 ❌ <b>Cancel Order #{order_id}</b>
 
@@ -3613,31 +3863,31 @@ async def cb_admin_cancel_order(callback: CallbackQuery):
         [
             InlineKeyboardButton(
                 text="🔗 Invalid Link",
-                callback_data=f"cancel_reason_{order_id}_invalid_link"
+                callback_data=f"cancel_reason_{order_id}_{customer_id}_invalid_link"
             ),
             InlineKeyboardButton(
                 text="💳 Payment Issue",
-                callback_data=f"cancel_reason_{order_id}_payment_issue"
+                callback_data=f"cancel_reason_{order_id}_{customer_id}_payment_issue"
             )
         ],
         [
             InlineKeyboardButton(
                 text="📦 Service Unavailable",
-                callback_data=f"cancel_reason_{order_id}_service_unavailable"
+                callback_data=f"cancel_reason_{order_id}_{customer_id}_service_unavailable"
             ),
             InlineKeyboardButton(
                 text="❌ Duplicate Order",
-                callback_data=f"cancel_reason_{order_id}_duplicate"
+                callback_data=f"cancel_reason_{order_id}_{customer_id}_duplicate"
             )
         ],
         [
             InlineKeyboardButton(
                 text="🚫 Policy Violation",
-                callback_data=f"cancel_reason_{order_id}_policy_violation"
+                callback_data=f"cancel_reason_{order_id}_{customer_id}_policy_violation"
             ),
             InlineKeyboardButton(
                 text="💬 Custom Reason",
-                callback_data=f"cancel_reason_{order_id}_custom"
+                callback_data=f"cancel_reason_{order_id}_{customer_id}_custom"
             )
         ],
         [
@@ -3662,40 +3912,68 @@ async def cb_admin_cancel_reason(callback: CallbackQuery):
         await callback.answer("❌ Unauthorized access!", show_alert=True)
         return
 
-    # Parse callback data: cancel_reason_ORDER_ID_REASON
+    # Parse callback data - support both legacy and smart formats
+    # Format: cancel_reason_ORDER_ID_[CUSTOMER_ID_]REASON
     callback_parts = callback.data.split("_")
-    order_id = callback_parts[2]
-    reason_type = "_".join(callback_parts[3:])
-
-    # Get order details - check all possible sources
-    global orders_data, order_temp
-    print(f"🔍 DEBUG: Cancel Reason - Looking for order {order_id}")
-
-    # Check if we can access the order from different sources
-    order_found = False
-    order = None
-
-    if order_id in orders_data:
-        order = orders_data[order_id]
-        order_found = True
-    else:
-        # Check order_temp for recent orders
-        for temp_order in order_temp.values():
-            if temp_order.get('order_id') == order_id:
-                order = temp_order
-                order_found = True
-                orders_data[order_id] = temp_order  # Store back
-                break
-
-    if not order_found:
-        await callback.answer("❌ Order not found!", show_alert=True)
+    order_id = callback_parts[2] if len(callback_parts) > 2 else None
+    customer_id = None
+    reason_type = None
+    
+    if not order_id:
+        await callback.answer("❌ Missing order ID!", show_alert=True)
         return
-    customer_id = order['user_id']
-    # Get customer name from users_data instead of order
-    customer_info = users_data.get(customer_id, {})
-    customer_name = customer_info.get('full_name') or customer_info.get('first_name', 'Customer')
-    package_name = order['package_name']
-    total_price = order['total_price']
+    
+    if len(callback_parts) >= 5:
+        # Smart format: cancel_reason_ORDER_ID_CUSTOMER_ID_REASON
+        try:
+            customer_id = int(callback_parts[3])
+            reason_type = "_".join(callback_parts[4:])
+            print(f"🔍 DEBUG: Smart Cancel Reason - Order ID: {order_id}, Customer ID: {customer_id}, Reason: {reason_type}")
+        except (ValueError, IndexError):
+            await callback.answer("❌ Invalid smart button format!", show_alert=True)
+            return
+    elif len(callback_parts) >= 4:
+        # Legacy format: cancel_reason_ORDER_ID_REASON
+        reason_type = "_".join(callback_parts[3:])
+        print(f"🔍 DEBUG: Legacy Cancel Reason - Order ID: {order_id}, Reason: {reason_type}")
+    else:
+        await callback.answer("❌ Invalid button data!", show_alert=True)
+        return
+
+    if not reason_type:
+        await callback.answer("❌ Missing cancellation reason!", show_alert=True)
+        return
+
+    # Get order details from step 1 parsing (stored in orders_data)
+    print(f"🔍 DEBUG: Cancel Order Step 2 - Getting parsed details from storage...")
+    
+    if order_id in orders_data and orders_data[order_id].get('parsed_from_message'):
+        # Use parsed details from step 1
+        order = orders_data[order_id]
+        customer_name = order.get('customer_name', 'Customer')
+        package_name = order.get('package_name', 'Unknown Package')
+        total_price = order.get('total_price', 0.0)
+        print(f"✅ DEBUG: Cancel Order Step 2 - Using parsed details: {customer_name}, {package_name}, ₹{total_price}")
+    else:
+        # Fallback: try to find in existing orders
+        print(f"⚠️ DEBUG: Cancel Order Step 2 - Parsed details not found, using fallback")
+        if order_id in orders_data:
+            order = orders_data[order_id]
+            customer_name = "Customer"  
+            package_name = order.get('package_name', 'Unknown Package')
+            total_price = order.get('total_price', 0.0)
+        else:
+            # Create minimal record
+            customer_name = "Customer"
+            package_name = "Unknown Package"
+            total_price = 0.0
+            orders_data[order_id] = {
+                'order_id': order_id,
+                'user_id': customer_id,
+                'status': 'pending',
+                'package_name': package_name,
+                'total_price': total_price
+            }
 
     # Reason mapping
     reason_messages = {
@@ -3714,6 +3992,9 @@ async def cb_admin_cancel_reason(callback: CallbackQuery):
     orders_data[order_id]['cancelled_at'] = datetime.now().isoformat()
     orders_data[order_id]['cancelled_by_admin'] = user_id
     orders_data[order_id]['cancellation_reason'] = reason_message
+
+    # Save updated order data to persistent storage
+    save_data_to_json(orders_data, "orders.json")
 
     # Send cancellation message to customer
     customer_message = f"""
@@ -4020,13 +4301,20 @@ async def handle_text_input_wrapper(message: Message, state: FSMContext):
     print(f"🔍 TEXT DEBUG: User {user_id} current_step: {current_step}")
     print(f"🔍 FSM DEBUG: User {user_id} FSM state: {fsm_state}")
 
-    # PRIORITY: Check for admin broadcast first
+    # PRIORITY: Check for admin broadcast and messaging first
     from services import handle_admin_broadcast_message, is_admin
     if is_admin(user_id):
         print(f"🔍 ADMIN CHECK: User {user_id} is admin, current_step: {current_step}")
         if current_step == "admin_broadcast_message":
             print(f"📢 Processing admin broadcast message from {user_id}")
             await handle_admin_broadcast_message(message, user_id)
+            return
+        elif current_step and current_step.startswith("admin_messaging_"):
+            # Handle admin direct messaging to specific user
+            target_user_id = int(current_step.replace("admin_messaging_", ""))
+            print(f"💬 Processing admin direct message from {user_id} to user {target_user_id}")
+            from text_input_handler import handle_admin_direct_message
+            await handle_admin_direct_message(message, user_id, target_user_id)
             return
 
     # Account creation steps that should be handled by account_creation.py
@@ -4069,6 +4357,9 @@ async def handle_photo_input(message: Message):
         # Store photo file_id in user data
         users_data[user_id]['profile_photo'] = file_id
         user_state[user_id]["current_step"] = None
+
+        # Save updated user data to persistent storage
+        save_data_to_json(users_data, "users.json")
 
         text = """
 ✅ <b>Profile Photo Updated Successfully!</b>
@@ -4167,6 +4458,28 @@ async def handle_contact_input(message: Message):
 async def on_startup():
     """Initialize bot on startup"""
     print("🚀 India Social Panel Bot starting...")
+
+    # Load persistent data from JSON files
+    global users_data, orders_data, tickets_data
+    print("📂 Loading persistent data...")
+
+    # Load users data
+    loaded_users = load_data_from_json("users.json")
+    if loaded_users:
+        # Convert string keys back to int for users_data
+        users_data.update({int(k): v for k, v in loaded_users.items()})
+
+    # Load orders data
+    loaded_orders = load_data_from_json("orders.json")
+    if loaded_orders:
+        orders_data.update(loaded_orders)
+
+    # Load tickets data
+    loaded_tickets = load_data_from_json("tickets.json")
+    if loaded_tickets:
+        tickets_data.update(loaded_tickets)
+
+    print(f"📊 Loaded {len(users_data)} users, {len(orders_data)} orders, {len(tickets_data)} tickets")
 
     # Initialize all handlers now that dp is available
     print("🔄 Initializing account handlers...")

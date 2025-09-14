@@ -492,7 +492,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
         try:
             user_id = callback.from_user.id
             transaction_id = (callback.data or "").replace("payment_completed_", "")
-            
+
             # Get the correct data from the FSM "Digital Notepad"
             order_data = await state.get_data()
             amount = order_data.get("total_price", 0.0)
@@ -504,7 +504,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
 
             # Set user state to waiting for screenshot using FSM
             await state.set_state(OrderStates.waiting_screenshot)
-            
+
             text = f"""
 📸 <b>Payment Screenshot Required</b>
 ✅ <b>Payment Details:</b>
@@ -520,7 +520,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
 
 💬 <b>Screenshot को image के रूप में send करें...</b>
 """
-            
+
             await safe_edit_message(callback, text)
             await callback.answer("📸 Screenshot भेजें...")
 
@@ -749,7 +749,7 @@ Send transaction screenshot to @tech_support_admin
                 return
 
             transaction_id = f"UPI{int(time.time())}{random.randint(100, 999)}"
-            
+
             # Store new details in FSM state
             await state.update_data(transaction_id=transaction_id, payment_method="upi")
 
@@ -765,13 +765,13 @@ Send transaction screenshot to @tech_support_admin
             • QR Code scan करके pay करें
             💡 <b>सबसे fast और secure method है!</b>
             """
-            
+
             await safe_edit_message(callback, text, get_upi_payment_menu(amount, transaction_id))
 
         except Exception as e:
             print(f"CRITICAL ERROR in cb_payment_upi: {e}")
             await callback.answer("An error occurred. Please try again.", show_alert=True)
-        
+
         await callback.answer()
 
     @main_dp.callback_query(F.data.startswith("copy_upi_"))
@@ -824,7 +824,7 @@ Send transaction screenshot to @tech_support_admin
         try:
             user_id = callback.from_user.id
             transaction_id = (callback.data or "").replace("qr_generate_", "")
-            
+
             # Get the correct data from the FSM "Digital Notepad"
             order_data = await state.get_data()
             amount = order_data.get("total_price", 0.0)
@@ -835,7 +835,7 @@ Send transaction screenshot to @tech_support_admin
                 return
 
             await callback.answer("🔄 QR Code generate kar rahe hain...")
-            
+
             # Generate QR code
             qr_data = generate_payment_qr(
                 amount,
@@ -843,7 +843,7 @@ Send transaction screenshot to @tech_support_admin
                 PAYMENT_CONFIG['upi_name'],
                 transaction_id
             )
-            
+
             # Prepare QR code message text
             qr_text = f"""
 📊 <b>Payment QR Code Generated!</b>
@@ -855,7 +855,7 @@ Send transaction screenshot to @tech_support_admin
 2. Pay the exact amount: {format_currency(amount)}
 3. After payment, click "Payment Done" below.
 """
-            
+
             qr_keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [
                     InlineKeyboardButton(text="✅ Payment Done", callback_data=f"payment_completed_{transaction_id}"),

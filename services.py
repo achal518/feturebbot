@@ -1803,6 +1803,9 @@ def register_service_handlers(dp, require_account):
             users_data[user_id]['email'] = "admin@indiasocialpanel.com"
             users_data[user_id]['phone_number'] = "+91XXXXXXXXXX"
             print(f"🔧 Force-completed admin account for broadcast user {user_id}")
+            # Save admin account data to persistent storage
+            from main import save_data_to_json
+            save_data_to_json(users_data, "users.json")
 
         # Set user state for message input
         user_state[user_id] = {

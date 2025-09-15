@@ -1090,24 +1090,25 @@ async def cb_new_order(callback: CallbackQuery):
     from services import get_services_main_menu
 
     text = """
-🚀 b>New Order Portal</b>
+🚀 <b>New Order Portal</b>
 
 Welcome! Here you can order powerful growth services for your social media accounts.
 
 Our system guarantees:
 
-<b>Choice &amp; Variety:</b> Packages of different qualities (from Economy to VIP) to suit every budget and need.
+<b>Choice & Variety:</b> Packages of different qualities (from Economy to VIP) to suit every budget and need.
 
 <b>Transparency:</b> Full details on each package's speed, quality, and guarantee will be clearly provided at the time of selection.
 
 <b>Security:</b> All payments and transactions are 100% safe and secure.
 
-💡<b>Let's get started. Please choose your platform below:</b>
+💡 <b>Let's get started. Please choose your platform below:</b>
 """
 
+    # Ensure this line has the same indentation as the 'text =' line above
     await safe_edit_message(callback, text, get_services_main_menu())
     await callback.answer()
-
+    
 # Service handlers moved to services.py
 
 @dp.callback_query(F.data == "add_funds")

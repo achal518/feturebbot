@@ -89,27 +89,32 @@ async def handle_link_input(message: Message, state: FSMContext):
 
     # Second message - Quantity input page
     quantity_text = f"""
-📊 <b>Step 3: Enter Quantity</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 <b>STEP 3: QUANTITY SELECTION</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💡 <b>कितनी quantity चाहिए?</b>
+🎯 <b>How many units would you like to order?</b>
 
-📋 <b>Order Details:</b>
-• Package: {package_name}
-• Rate: {package_rate}
-• Target: {platform.title()}
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 📦 <b>ORDER SUMMARY</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • <b>Service:</b> {package_name}
+┃ • <b>Pricing:</b> {package_rate}  
+┃ • <b>Platform:</b> {platform.title()}
+┃ • <b>Target:</b> Your provided link
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-⚠️ <b>Quantity Guidelines:</b>
-• केवल numbers में भेजें
-• Minimum: 100
-• Maximum: 1,000,000
-• Example: 1000, 5000, 10000
+⚡ <b>QUANTITY REQUIREMENTS:</b>
+┌─────────────────────────────────────┐
+│ 🔢 <b>Enter numbers only</b>                │
+│ 📉 <b>Minimum:</b> 100 units               │
+│ 📈 <b>Maximum:</b> 1,000,000 units         │
+│ ✨ <b>Popular choices:</b> 1000, 5000      │
+└─────────────────────────────────────┘
 
-💬 <b>अपनी quantity type करके send करें:</b>
+💬 <b>Please type your desired quantity and send:</b>
 
-🔢 <b>Example Messages:</b>
-• 1000
-• 5000
-• 10000
+🎯 <b>Pro Tip:</b> Higher quantities often provide better value for money!
 """
 
     await message.answer(quantity_text)
@@ -150,24 +155,35 @@ async def handle_quantity_input(message: Message, state: FSMContext):
     link = data.get("link", "")
 
     text = f"""
-✅ <b>Quantity Successfully Selected!</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ <b>QUANTITY CONFIRMED SUCCESSFULLY!</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📦 <b>Package:</b> {package_name}
-🆔 <b>ID:</b> {service_id}
-💰 <b>Rate:</b> {package_rate}
-🔗 <b>Link:</b> {link}
-📊 <b>Quantity:</b> {quantity:,}
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 📋 <b>ORDER CONFIRMATION</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • 📦 <b>Package:</b> {package_name}
+┃ • 🆔 <b>Service ID:</b> {service_id}
+┃ • 💰 <b>Rate:</b> {package_rate}
+┃ • 🔗 <b>Target:</b> {link}
+┃ • 📊 <b>Quantity:</b> {quantity:,} units
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎟️ <b>Coupon Code (Optional)</b>
+🎟️ <b>DISCOUNT COUPON CODE</b> <i>(Optional)</i>
 
-💡 <b>अगर आपके पास कोई valid coupon code है तो type करें</b>
+💡 <b>Have a promo code? Enter it below to save money!</b>
 
-📝 <b>Instructions:</b>
-• अपना coupon code manually enter करें
-• केवल valid codes ही accept होंगे
-• कोई coupon नहीं है तो Skip button दबाएं
+┌─────────────────────────────────────┐
+│ 📝 <b>COUPON INSTRUCTIONS:</b>             │
+│ • Enter your coupon code manually      │
+│ • Only valid codes will be accepted    │
+│ • Click Skip if you don't have one     │
+│ • Codes are case-sensitive            │
+└─────────────────────────────────────┘
 
-💬 <b>Coupon code type करें या Skip करें</b>
+💬 <b>Type your coupon code or click Skip to continue:</b>
+
+🎯 <b>Save More:</b> Follow our channel for exclusive discount codes!
 """
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[[

@@ -344,6 +344,34 @@ Hello <b>{user_display_name}</b>! 👋
         print(f"❌ Failed to send first interaction notification to {user_id}: {e}")
         return False
 
+async def send_new_user_notification_to_admin(user):
+    """Send notification to admin group when a new user starts the bot for the first time"""
+    admin_group_id = -1003009015663
+    
+    try:
+        user_id = user.id
+        first_name = user.first_name or "N/A"
+        username = f"@{user.username}" if user.username else "N/A"
+        
+        notification_text = f"""
+🆕 <b>New User Alert!</b>
+
+👤 <b>User Details:</b>
+• 🆔 <b>User ID:</b> <code>{user_id}</code>
+• 👤 <b>First Name:</b> {first_name}
+• 📱 <b>Username:</b> {username}
+• 🕐 <b>Joined:</b> {datetime.now().strftime("%d %b %Y, %I:%M %p")}
+
+🎉 <b>A new user has started the bot!</b>
+"""
+        
+        await bot.send_message(admin_group_id, notification_text, parse_mode="HTML")
+        print(f"✅ New user notification sent to admin group for user {user_id}")
+        return True
+    except Exception as e:
+        print(f"❌ Failed to send new user notification to admin group: {e}")
+        return False
+
 def mark_user_for_notification(user_id: int):
     """Mark user for bot alive notification"""
     users_to_notify.add(user_id)
@@ -676,6 +704,47 @@ async def cmd_broadcast(message: Message):
 🎯 <b>Broadcast finished!</b>
 """)
 
+@dp.message(Command("restoreuser"))
+async def cmd_restoreuser(message: Message):
+    """Admin command to restore a user back into memory after bot restart"""
+    user = message.from_user
+    if not user or not is_admin(user.id):
+        await message.answer("⚠️ This command is for admins only!")
+        return
+
+    # Parse the command to extract USER_ID
+    command_parts = message.text.split(' ', 1)
+    if len(command_parts) < 2:
+        await message.answer("""
+🔧 <b>Restore User Command Usage:</b>
+
+💬 <b>Format:</b> /restoreuser USER_ID
+
+📝 <b>Example:</b> /restoreuser 123456789
+
+💡 <b>This will restore the user back into bot memory</b>
+""")
+        return
+
+    try:
+        user_id = int(command_parts[1].strip())
+    except ValueError:
+        await message.answer("❌ Invalid USER_ID! Please provide a valid numeric user ID.")
+        return
+
+    # Check if user is already in memory
+    if user_id in users_data:
+        await message.answer(f"⚠️ User {user_id} is already in memory!")
+        return
+
+    # Use the existing init_user function to create identical user record
+    init_user(user_id)
+    
+    print(f"🔧 RESTORE: Admin {user.id} restored user {user_id} to memory")
+    
+    # Send confirmation message
+    await message.answer(f"✅ User {user_id} has been successfully restored to memory.")
+
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     """Handle /start command with professional welcome"""
@@ -729,6 +798,9 @@ Hello, <b>{user_display_name}</b>! We're ready to take your social media account
     else:
         # New user - show both create account and login options
         user_display_name = f"@{user.username}" if user.username else user.first_name or 'Friend'
+        
+        # Send notification to admin group about new user
+        await send_new_user_notification_to_admin(user)
 
         welcome_text = f"""
 🚀 <b>Welcome to India Social Panel</b>

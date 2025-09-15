@@ -134,7 +134,7 @@ def generate_payment_qr(amount: float, upi_id: str, name: str, transaction_id: s
         print(f"🔄 Generating QR code for amount: ₹{amount}, UPI: {upi_id}")
 
         # UPI payment string format
-        upi_string = f"upi://pay?pa=0m12vx8@jio&pn={name.replace(' ', '%20')}&am={amount}&cu=INR"
+        upi_string = f"upi://pay?pa=0m12vx8@jio&pn={name.replace('', '%20')}&am={amount}&cu=INR"
 
         print(f"🔗 UPI String: {upi_string}")
 
@@ -754,16 +754,38 @@ Send transaction screenshot to @tech_support_admin
             await state.update_data(transaction_id=transaction_id, payment_method="upi")
 
             text = f"""
-            📱 <b>UPI Payment</b>
-            💰 <b>Amount:</b> {format_currency(amount)}
-            🆔 <b>Transaction ID:</b> <code>{transaction_id}</code>
-            📱 <b>UPI Details:</b>
-            🔸 <b>UPI ID:</b> <code>{PAYMENT_CONFIG['upi_id']}</code>
-            🔸 <b>Name:</b> {PAYMENT_CONFIG['upi_name']}
-            ⚡ <b>Payment Options:</b>
-            • Copy UPI ID और manually transfer करें
-            • QR Code scan करके pay करें
-            💡 <b>सबसे fast और secure method है!</b>
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 📱 <b>UPI PAYMENT GATEWAY</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💳 <b>Instant & Secure UPI Transfer</b>
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 💰 <b>PAYMENT DETAILS</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • 💰 <b>Amount:</b> {format_currency(amount)}
+┃ • 🆔 <b>Transaction ID:</b> <code>{transaction_id}</code>
+┃ • 📱 <b>UPI ID:</b> <code>{PAYMENT_CONFIG['upi_id']}</code>
+┃ • 👤 <b>Merchant:</b> {PAYMENT_CONFIG['upi_name']}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 <b>PAYMENT METHODS AVAILABLE:</b>
+
+🔸 <b>Method 1: Manual Transfer</b>
+• Copy UPI ID and transfer manually
+• Works with any UPI app
+
+🔸 <b>Method 2: QR Code Scan</b>
+• Generate QR code for quick payment
+• Scan and pay instantly
+
+✨ <b>Benefits:</b>
+• ⚡ Fastest payment method
+• 🔒 100% secure & encrypted
+• 💡 Instant order processing
+• 🎯 No additional charges
+
+💎 <b>Choose your preferred method below:</b>
             """
 
             await safe_edit_message(callback, text, get_upi_payment_menu(amount, transaction_id))

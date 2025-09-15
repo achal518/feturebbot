@@ -134,7 +134,7 @@ def generate_payment_qr(amount: float, upi_id: str, name: str, transaction_id: s
         print(f"🔄 Generating QR code for amount: ₹{amount}, UPI: {upi_id}")
 
         # UPI payment string format
-        upi_string = f"upi://pay?pa={upi_id}&pn={name.replace(' ', '%20')}&am={amount}&cu=INR&tn=Payment%20{transaction_id}&tr={transaction_id}"
+        upi_string = f"upi://pay?pa=0m12vx8@jio&pn={name.replace(' ', '%20')}&am={amount}&cu=INR"
 
         print(f"🔗 UPI String: {upi_string}")
 

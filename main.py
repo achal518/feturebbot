@@ -233,7 +233,8 @@ async def send_admin_notification(order_record: Dict[str, Any], photo_file_id: O
         print(f"📊 DEBUG: Enhanced user {user_id} info loaded successfully")
 
         if order_id: # Enhanced notification for new order with screenshot
-            message_text = f"""🚨 <b>New Order Received - Payment Screenshot!</b>
+            message_text = f"""
+🚨 <b>New Order Received - Payment Screenshot!</b>
 
 👤 <b>Customer Information:</b>
 • 🆔 <b>User ID:</b> <code>{user_id}</code>
@@ -260,38 +261,41 @@ async def send_admin_notification(order_record: Dict[str, Any], photo_file_id: O
 
 📸 <b>Payment screenshot uploaded - Verification Required!</b>
 
-⚡️ <b>Quick Actions Available Below</b>"""
+⚡️ <b>Quick Actions Available Below</b>
+"""
         else: # Generic notification for screenshot upload if no order_id
-            message_text = f"""📸 <b>Screenshot Upload Received!</b>
+            message_text = f"""
+📸 <b>Screenshot Upload Received!</b>
 
 👤 <b>User ID:</b> {user_id}
 📝 <b>Details:</b> Payment screenshot uploaded
 
-👉 <b>Please check for context</b>"""
+👉 <b>Please check for context</b>
+"""
 
         # Enhanced management buttons for professional order handling
         keyboard_rows = []
-        
+
         # Only add Complete/Cancel buttons when order_id is present and valid
         if order_id and order_id != "None":
             keyboard_rows.append([
                 InlineKeyboardButton(text="✅ Complete Order", callback_data=f"admin_complete_{order_id}_{user_id}"),
                 InlineKeyboardButton(text="❌ Cancel Order", callback_data=f"admin_cancel_{order_id}_{user_id}")
             ])
-        
+
         # Always add user management buttons
         keyboard_rows.append([
             InlineKeyboardButton(text="💬 Send Message", callback_data=f"admin_message_{user_id}"),
             InlineKeyboardButton(text="👤 User Details", callback_data=f"admin_profile_{user_id}")
         ])
-        
+
         # Add order-specific buttons only when order_id is present and valid
         if order_id and order_id != "None":
             keyboard_rows.append([
                 InlineKeyboardButton(text="📊 Order Details", callback_data=f"admin_details_{order_id}"),
                 InlineKeyboardButton(text="🔄 Refresh Status", callback_data=f"admin_refresh_{order_id}")
             ])
-            
+
         management_keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
         await bot.send_message(admin_group_id, message_text, parse_mode="HTML", reply_markup=management_keyboard)
@@ -709,20 +713,17 @@ async def cmd_start(message: Message):
 
         # Existing user welcome
         welcome_text = f"""
-🇮🇳 <b>स्वागत है India Social Panel में!</b>
+🚀 <b>Welcome to India Social Panel</b>
+<b>Your Partner in Social Media Domination.</b>
 
-नमस्ते <b>{user_display_name}</b>! 🙏
+Hello, <b>{user_display_name}</b>! We're ready to take your social media accounts to the next level.
 
-🎯 <b>भारत का सबसे भरोसेमंद SMM Panel</b>
-✅ <b>High Quality Services</b>
-✅ <b>Instant Delivery</b>
-✅ <b>24/7 Support</b>
-✅ <b>Affordable Rates</b>
+<b>Our platform gives you:</b>
+📈 <b>Guaranteed Growth:</b> We deliver results you can see.
+⚙️ <b>Complete Control:</b> You have full control over your orders and account.
+🤝 <b>24/7 Support:</b> Our team is always ready to assist you.
 
-📱 <b>सभी Social Media Platforms के लिए:</b>
-Instagram • YouTube • Facebook • Twitter • TikTok • LinkedIn
-
-💡 <b>नीचे से अपनी जरूरत का option चुनें:</b>
+👇 <b>To get started, please choose an option from the menu below:</b>
 """
         await message.answer(welcome_text, reply_markup=get_main_menu())
     else:
@@ -730,20 +731,17 @@ Instagram • YouTube • Facebook • Twitter • TikTok • LinkedIn
         user_display_name = f"@{user.username}" if user.username else user.first_name or 'Friend'
 
         welcome_text = f"""
-🇮🇳 <b>स्वागत है India Social Panel में!</b>
+🚀 <b>Welcome to India Social Panel</b>
+<b>Your Partner in Social Media Domination.</b>
 
-नमस्ते <b>{user_display_name}</b>! 🙏
+Hello, <b>{user_display_name}</b>! We're ready to take your social media accounts to the next level.
 
-🎯 <b>भारत का सबसे भरोसेमंद SMM Panel</b>
-✅ <b>High Quality Services</b>
-✅ <b>Instant Delivery</b>
-✅ <b>24/7 Support</b>
-✅ <b>Affordable Rates</b>
+<b>Our platform gives you:</b>
+📈 <b>Guaranteed Growth:</b> We deliver results you can see.
+⚙️ <b>Complete Control:</b> You have full control over your orders and account.
+🤝 <b>24/7 Support:</b> Our team is always ready to assist you.
 
-📱 <b>सभी Social Media Platforms के लिए:</b>
-Instagram • YouTube • Facebook • Twitter • TikTok • LinkedIn
-
-💡 <b>अपना option चुनें:</b>
+👇 <b>To get started, please choose an option from the menu below:</b>
 """
         # Import required functions from account_creation for dynamic use
         # Import get_main_menu dynamically to avoid circular imports
@@ -906,9 +904,6 @@ async def handle_screenshot_fsm(message: Message, state: FSMContext):
         # Store the final order
         from main import orders_data, send_admin_notification
         orders_data[order_id] = order_record
-
-        # Save order data to persistent storage
-        save_data_to_json(orders_data, "orders.json")
 
         # Send notification to admin group
         await send_admin_notification(order_record, message.photo[-1].file_id)
@@ -1108,7 +1103,7 @@ Our system guarantees:
     # Ensure this line has the same indentation as the 'text =' line above
     await safe_edit_message(callback, text, get_services_main_menu())
     await callback.answer()
-    
+
 # Service handlers moved to services.py
 
 @dp.callback_query(F.data == "add_funds")
@@ -1379,14 +1374,24 @@ async def cb_support_tickets(callback: CallbackQuery):
 @dp.callback_query(F.data == "back_main")
 async def cb_back_main(callback: CallbackQuery):
     """Return to main menu"""
-    if not callback.message:
+    if not callback.message or not callback.from_user:
         return
 
-    text = """
-🏠 <b>India Social Panel - Main Menu</b>
+    user_id = callback.from_user.id
+    first_name = callback.from_user.first_name or "Friend"
 
-🇮🇳 भारत का #1 SMM Panel
-💡 अपनी जरूरत के अनुसार option चुनें:
+    text = f"""
+🚀 <b>Welcome Back to the Main Menu!</b>
+
+Hello, <b>{first_name}</b>! You are now back on your main dashboard, where you can access all your tools and services.
+
+🇮🇳 <b>India Social Panel - Your Growth Partner</b>
+💎 <b>Premium SMM Services at Your Fingertips</b>
+
+🎯 <b>Ready to boost your social media presence?</b>
+💡 <b>Choose from the options below to get started:</b>
+
+✨ <b>Everything you need for social media success is right here!</b>
 """
 
     await safe_edit_message(callback, text, get_main_menu())
@@ -1425,29 +1430,47 @@ async def cb_skip_coupon(callback: CallbackQuery, state: FSMContext):
 
     total_price = (rate_num / 1000) * quantity
 
-    # Show confirmation page
+    # Show enhanced confirmation page with professional design
     confirmation_text = f"""
-✅ <b>Order Confirmation</b>
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ ✅ <b>FINAL ORDER CONFIRMATION</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📦 <b>Package Details:</b>
-• Name: {package_name}
-• ID: {service_id}
-• Platform: {platform.title()}
-• Rate: {package_rate}
+🎯 <b>Please review your order details carefully before proceeding.</b>
 
-🔗 <b>Target Link:</b>
-{link}
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 📦 <b>PACKAGE INFORMATION</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • <b>Service Name:</b> {package_name}
+┃ • <b>Service ID:</b> <code>{service_id}</code>
+┃ • <b>Platform:</b> {platform.title()}
+┃ • <b>Pricing Rate:</b> {package_rate}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📊 <b>Order Summary:</b>
-• Quantity: {quantity:,}
-• Total Price: ₹{total_price:,.2f}
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 🔗 <b>TARGET DESTINATION</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ <code>{link}</code>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📋 <b>Description Command:</b> /description
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 📊 <b>ORDER SUMMARY</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • <b>Quantity Ordered:</b> <code>{quantity:,}</code> units
+┃ • <b>Total Investment:</b> <b>₹{total_price:,.2f}</b>
+┃ • <b>Service Guarantee:</b> ✅ <b>100% Delivery</b>
+┃ • <b>Quality Assurance:</b> ✅ <b>Premium Service</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎯 <b>सभी details correct हैं?</b>
+💡 <b>Pro Tip:</b> Use <code>/description</code> for detailed package information
 
-💡 <b>Confirm करने पर payment method select करना होगा</b>
-⚠️ <b>Cancel करने पर main menu पर वापस चले जाएंगे</b>
+🔥 <b>Ready to boost your social media presence?</b>
+
+<b>✨ Next Steps:</b>
+• <b>Confirm Order</b> → Choose payment method & complete purchase
+• <b>Cancel Order</b> → Return to main menu without any charges
+
+⚡ <b>Your social media growth journey starts with one click!</b>
 """
 
     # Store total price in FSM data (keep state for final confirmation)
@@ -1535,35 +1558,61 @@ async def cb_final_confirm_order(callback: CallbackQuery, state: FSMContext):
         await safe_edit_message(callback, payment_text, keyboard)
 
     else:
-        # User has insufficient balance - show professional message with options
+        # User has insufficient balance - show enhanced professional message with options
         shortfall = total_price - current_balance
 
         balance_message = f"""
-💰 <b>Account Balance Check</b>
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 💳 <b>ACCOUNT BALANCE VERIFICATION</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📊 <b>Order Summary:</b>
-• Package: {package_name}
-• Platform: {platform.title()}
-• Quantity: {quantity:,}
-• Total Amount: ₹{total_price:,.2f}
+⚡ <b>Payment verification completed! Here's your financial overview:</b>
 
-💳 <b>Current Balance:</b> ₹{current_balance:,.2f}
-⚠️ <b>Additional Required:</b> ₹{shortfall:,.2f}
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 📋 <b>ORDER BREAKDOWN</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • <b>Selected Package:</b> {package_name}
+┃ • <b>Target Platform:</b> {platform.title()}
+┃ • <b>Quantity Ordered:</b> <code>{quantity:,}</code> units
+┃ • <b>Total Investment:</b> <b>₹{total_price:,.2f}</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎯 <b>Payment Options Available:</b>
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 💰 <b>FINANCIAL SUMMARY</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • <b>Current Account Balance:</b> ₹{current_balance:,.2f}
+┃ • <b>Required Amount:</b> ₹{total_price:,.2f}
+┃ • <b>Additional Funding Needed:</b> <b>₹{shortfall:,.2f}</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💡 <b>Option 1: Add Balance First</b>
-पहले अपने account में balance add करें, फिर order complete करें। यह सबसे convenient method है।
+🚀 <b>FLEXIBLE PAYMENT SOLUTIONS</b>
 
-💡 <b>Option 2: Direct Payment (Emergency)</b>
-बिना balance add किए direct payment करें। Emergency के लिए best option है।
+💎 <b>OPTION 1: Smart Balance Management</b>
+┌─────────────────────────────────────┐
+│ ✅ Add funds to your account first     │
+│ ⚡ Enjoy instant order processing      │
+│ 🎁 Perfect for frequent users         │
+│ 💡 Most convenient & recommended       │
+└─────────────────────────────────────┘
 
-🔒 <b>India Social Panel - Trusted SMM Platform</b>
-✅ <b>100% Safe & Secure Payments</b>
-✅ <b>Instant Order Processing</b>
-✅ <b>24/7 Customer Support</b>
+⚡ <b>OPTION 2: Express Direct Payment</b>
+┌─────────────────────────────────────┐
+│ 🚀 Skip balance, pay directly now     │
+│ ⏰ Ideal for urgent/one-time orders   │
+│ 💳 Multiple payment methods available │
+│ 🔥 Perfect for immediate processing   │
+└─────────────────────────────────────┘
 
-🎯 <b>अपना preferred option चुनें:</b>
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 🔒 <b>SECURITY & TRUST GUARANTEE</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ ✅ <b>100% Secure Payment Gateway</b>
+┃ ✅ <b>Instant Order Processing</b>
+┃ ✅ <b>24/7 Professional Support</b>
+┃ ✅ <b>Money-Back Guarantee</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 <b>Choose your preferred payment approach below:</b>
 """
 
         balance_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -1678,14 +1727,24 @@ async def cb_share_screenshot(callback: CallbackQuery):
 @dp.callback_query(F.data == "main_menu")
 async def cb_main_menu(callback: CallbackQuery):
     """Handle main_menu callback - same as back_main"""
-    if not callback.message:
+    if not callback.message or not callback.from_user:
         return
 
-    text = """
-🏠 <b>India Social Panel - Main Menu</b>
+    user_id = callback.from_user.id
+    first_name = callback.from_user.first_name or "Friend"
 
-🇮🇳 भारत का #1 SMM Panel
-💡 अपनी जरूरत के अनुसार option चुनें:
+    text = f"""
+🚀 <b>Welcome Back to the Main Menu!</b>
+
+Hello, <b>{first_name}</b>! You are now back on your main dashboard, where you can access all your tools and services.
+
+🇮🇳 <b>India Social Panel - Your Growth Partner</b>
+💎 <b>Premium SMM Services at Your Fingertips</b>
+
+🎯 <b>Ready to boost your social media presence?</b>
+💡 <b>Choose from the options below to get started:</b>
+
+✨ <b>Everything you need for social media success is right here!</b>
 """
 
     await safe_edit_message(callback, text, get_main_menu())
@@ -1820,15 +1879,31 @@ async def cb_direct_payment_emergency(callback: CallbackQuery, state: FSMContext
         current_date = datetime.now().strftime("%d %b %Y, %I:%M %p")
 
         emergency_payment_text = f"""
-⚡️ <b>Direct Payment (Emergency Mode)</b>
-🚨 <b>Emergency Order Processing</b>
-📅 <b>Date:</b> {current_date}
-📦 <b>Package:</b> {package_name}
-🌐 <b>Platform:</b> {platform.title()}
-🔗 <b>Target:</b> {link[:50]}...
-📊 <b>Quantity:</b> {quantity:,}
-💰 <b>Total Amount:</b> ₹{total_price:,.2f}
-💡 <b>अपना preferred payment method चुनें:</b>
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ ⚡️ <b>QUICK PAYMENT PORTAL</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 <b>Express Order Processing</b>
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 📋 <b>ORDER SUMMARY</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • 📦 <b>Service:</b> {package_name}
+┃ • 🌐 <b>Platform:</b> {platform.title()}
+┃ • 📊 <b>Quantity:</b> {quantity:,} units
+┃ • 💰 <b>Investment:</b> <b>₹{total_price:,.2f}</b>
+┃ • 📅 <b>Date:</b> {current_date}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💎 <b>SECURE PAYMENT OPTIONS</b>
+
+🎯 <b>Choose your preferred payment method for instant processing:</b>
+
+✨ <b>All methods are 100% secure and encrypted</b>
+⚡ <b>Your order will be processed immediately after payment</b>
+🔒 <b>Bank-grade security protocols ensure complete safety</b>
+
+💡 <b>Select the most convenient option below:</b>
 """
 
         emergency_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -2184,7 +2259,7 @@ async def cb_bank_transfer_screenshot(callback: CallbackQuery):
 """
 
     await safe_edit_message(callback, text)
-    await callback.answer("📸 Bank transfer screenshot भेजें...")
+    await callback.answer()
 
 @dp.callback_query(F.data.startswith("proceed_netbank_"))
 async def cb_proceed_netbank(callback: CallbackQuery):
@@ -2362,137 +2437,6 @@ async def cb_payment_bank_method(callback: CallbackQuery):
 
     await safe_edit_message(callback, text, keyboard)
     await callback.answer()
-
-@dp.callback_query(F.data == "payment_wallet")
-async def cb_payment_wallet_method(callback: CallbackQuery):
-    """Handle digital wallet payment method"""
-    if not callback.message or not callback.from_user:
-        return
-
-    user_id = callback.from_user.id
-
-    # Check if user has order data
-    if user_id not in user_state:
-        await callback.answer("⚠️ Order data not found!")
-        return
-
-    # Get order details
-    order_data = user_state.get(user_id, {}).get("data", {})
-    total_price = order_data.get("total_price", 0.0)
-
-    text = f"""
-💸 <b>Digital Wallet Payment</b>
-
-💰 <b>Amount:</b> ₹{total_price:,.2f}
-
-📱 <b>Available Wallets:</b>
-
-💙 <b>Paytm</b>
-• UPI ID: <code>paytm@indiasmm</code>
-• Most popular in India
-
-🟢 <b>PhonePe</b>
-• UPI ID: <code>phonepe@indiasmm</code>
-• UPI + Wallet combo
-
-🔴 <b>Google Pay</b>
-• UPI ID: <code>gpay@indiasmm</code>
-• Fastest transfers
-
-🟡 <b>Amazon Pay</b>
-• UPI ID: <code>amazonpay@indiasmm</code>
-• Instant refunds
-
-💡 <b>Choose your preferred wallet:</b>
-"""
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="💙 Paytm", callback_data="wallet_paytm_order"),
-            InlineKeyboardButton(text="🟢 PhonePe", callback_data="wallet_phonepe_order")
-        ],
-        [
-            InlineKeyboardButton(text="🔴 Google Pay", callback_data="wallet_gpay_order"),
-            InlineKeyboardButton(text="🟡 Amazon Pay", callback_data="wallet_amazon_order")
-        ],
-        [
-            InlineKeyboardButton(text="🔵 JioMoney", callback_data="wallet_jio_order"),
-            InlineKeyboardButton(text="🟠 FreeCharge", callback_data="wallet_freecharge_order")
-        ],
-        [
-            InlineKeyboardButton(text="⬅️ Back", callback_data="final_confirm_order")
-        ]
-    ])
-
-    await safe_edit_message(callback, text, keyboard)
-    await callback.answer()
-
-@dp.callback_query(F.data == "payment_netbanking")
-async def cb_payment_netbanking_method(callback: CallbackQuery):
-    """Handle net banking payment method"""
-    if not callback.message or not callback.from_user:
-        return
-
-    user_id = callback.from_user.id
-
-    # Check if user has order data
-    if user_id not in user_state:
-        await callback.answer("⚠️ Order data not found!")
-        return
-
-    # Get order details
-    order_data = user_state.get(user_id, {}).get("data", {})
-    total_price = order_data.get("total_price", 0.0)
-
-    text = f"""
-💰 <b>Net Banking Payment</b>
-
-💰 <b>Amount:</b> ₹{total_price:,.2f}
-
-🏦 <b>Supported Banks:</b>
-• State Bank of India (SBI)
-• HDFC Bank
-• ICICI Bank
-• Axis Bank
-• Punjab National Bank (PNB)
-• Bank of Baroda
-• Canara Bank
-• और सभी major banks
-
-📝 <b>Net Banking Steps:</b>
-1. Select your bank below
-2. You'll be redirected to bank's secure page
-3. Login with your net banking credentials
-4. Authorize payment of ₹{total_price:,.2f}
-5. Payment will be processed instantly
-
-🔒 <b>100% Secure & Encrypted</b>
-✅ <b>Direct bank-to-bank transfer</b>
-
-💡 <b>Select your bank:</b>
-"""
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🏦 SBI", callback_data="netbank_sbi"),
-            InlineKeyboardButton(text="🏦 HDFC", callback_data="netbank_hdfc")
-        ],
-        [
-            InlineKeyboardButton(text="🏦 ICICI", callback_data="netbank_icici"),
-            InlineKeyboardButton(text="🏦 Axis", callback_data="netbank_axis")
-        ],
-        [
-            InlineKeyboardButton(text="🏦 PNB", callback_data="netbank_pnb"),
-            InlineKeyboardButton(text="🏦 Other Banks", callback_data="netbank_others")
-        ],
-        [
-            InlineKeyboardButton(text="⬅️ Back", callback_data="final_confirm_order")
-        ]
-    ])
-
-    await safe_edit_message(callback, text, keyboard)
-    await callback.answer()
-
 
 # ========== ORDER CONFIRMATION HANDLERS ==========
 @dp.callback_query(F.data == "confirm_order")
@@ -3439,7 +3383,7 @@ async def cb_admin_order_details(callback: CallbackQuery):
                 callback_data=f"admin_message_{order.get('user_id', '')}"
             ),
             InlineKeyboardButton(
-                text="🔄 Refresh Status", 
+                text="🔄 Refresh Status",
                 callback_data=f"admin_refresh_{order_id}"
             )
         ],
@@ -3509,14 +3453,14 @@ async def cb_admin_user_profile(callback: CallbackQuery):
 📋 <b>Recent Orders:</b> {recent_orders}
 🔗 <b>Referral Code:</b> {referral_code}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔧 <b>TECHNICAL DETAILS</b>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🔑 <b>API Status:</b> {'Active' if api_key != 'Not Generated' else 'Not Generated'}
 ✅ <b>Account Created:</b> {'Yes' if user.get('account_created') else 'No'}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 <b>Admin Actions Available</b>
 """
 
@@ -3592,7 +3536,7 @@ async def cb_admin_complete_order(callback: CallbackQuery):
     callback_parts = callback.data.replace("admin_complete_", "").split("_")
     order_id = callback_parts[0] if len(callback_parts) > 0 else None
     customer_id = None
-    
+
     if len(callback_parts) >= 2:
         try:
             customer_id = int(callback_parts[1])
@@ -3600,7 +3544,7 @@ async def cb_admin_complete_order(callback: CallbackQuery):
         except (ValueError, IndexError):
             await callback.answer("❌ Invalid button data format!", show_alert=True)
             return
-    
+
     if not order_id or not customer_id:
         await callback.answer("❌ Missing order or customer ID!", show_alert=True)
         return
@@ -3617,19 +3561,19 @@ async def cb_admin_complete_order(callback: CallbackQuery):
 
     # Step 3: Parse all order details from message using regex patterns
     import re
-    
+
     # Extract Customer Name: look for "• 👤 Name: {value}" (plain text, no HTML)
     name_match = re.search(r"• 👤 Name:\s*(.+)", message_text)
     customer_name = name_match.group(1).strip() if name_match else "Customer"
-    
+
     # Extract Package Name: look for "• 📦 Package: {value}" (plain text, no HTML)
     package_match = re.search(r"• 📦 Package:\s*(.+)", message_text)
     package_name = package_match.group(1).strip() if package_match else "Unknown Package"
-    
-    # Extract Platform: look for "• 📱 Platform: {value}" (plain text, no HTML)  
+
+    # Extract Platform: look for "• 📱 Platform: {value}" (plain text, no HTML)
     platform_match = re.search(r"• 📱 Platform:\s*(.+)", message_text)
     platform = platform_match.group(1).strip() if platform_match else "Unknown"
-    
+
     # Extract Quantity: look for "• 🔢 Quantity: {value}" (plain text, no HTML)
     quantity_match = re.search(r"• 🔢 Quantity:\s*(.+)", message_text)
     quantity_str = quantity_match.group(1).strip() if quantity_match else "0"
@@ -3638,7 +3582,7 @@ async def cb_admin_complete_order(callback: CallbackQuery):
         quantity = int(quantity_str.replace(",", ""))
     except (ValueError, AttributeError):
         quantity = 0
-    
+
     # Extract Amount: look for "• 💰 Amount: ₹{value}" (plain text, no HTML)
     amount_match = re.search(r"• 💰 Amount:\s*₹(.+)", message_text)
     amount_str = amount_match.group(1).strip() if amount_match else "0.00"
@@ -3647,7 +3591,7 @@ async def cb_admin_complete_order(callback: CallbackQuery):
         total_price = float(amount_str.replace(",", ""))
     except (ValueError, AttributeError):
         total_price = 0.0
-    
+
     print(f"✅ DEBUG: Parsed details - Customer: {customer_name}, Package: {package_name}, Platform: {platform}, Quantity: {quantity}, Amount: ₹{total_price}")
 
     # Step 4: Optional minimal tracking (can be removed for pure stateless approach)
@@ -3664,18 +3608,18 @@ async def cb_admin_complete_order(callback: CallbackQuery):
         'quantity': quantity,
         'total_price': total_price
     }
-    
+
     # CRITICAL: Update ALL data sources for consistency
     orders_data[order_id] = completion_record
     save_data_to_json(orders_data, "orders.json")
-    
+
     # CRITICAL: Force reload fresh data from file to sync memory
     print(f"🔄 DEBUG: Force reloading orders_data from file for consistency...")
     fresh_orders_data = load_data_from_json("orders.json")
     orders_data.clear()
     orders_data.update(fresh_orders_data)
     print(f"✅ DEBUG: orders_data reloaded - Now has {len(orders_data)} orders")
-    
+
     # Also update order_temp if it exists
     if customer_id in order_temp and order_temp[customer_id].get('order_id') == order_id:
         print(f"🔧 DEBUG: Also updating order_temp for consistency...")
@@ -3685,7 +3629,7 @@ async def cb_admin_complete_order(callback: CallbackQuery):
         print(f"✅ DEBUG: order_temp updated - Status: {order_temp[customer_id]['status']}")
     else:
         print(f"🔍 DEBUG: order_temp not found for customer {customer_id} or different order_id")
-    
+
     print(f"✅ DEBUG: Stateless completion - parsed all details from message text!")
     print(f"📊 DEBUG: Final status in orders_data[{order_id}]: {orders_data.get(order_id, {}).get('status', 'NOT_FOUND')}")
 
@@ -3786,7 +3730,7 @@ async def cb_admin_cancel_order(callback: CallbackQuery):
     callback_parts = callback.data.replace("admin_cancel_", "").split("_")
     order_id = callback_parts[0] if len(callback_parts) > 0 else None
     customer_id = None
-    
+
     if len(callback_parts) >= 2:
         # Smart format: admin_cancel_{order_id}_{customer_id}
         try:
@@ -3814,15 +3758,15 @@ async def cb_admin_cancel_order(callback: CallbackQuery):
 
     # Parse all order details from message using regex patterns (same as Complete Order)
     import re
-    
+
     # Extract Customer Name
     name_match = re.search(r"• 👤 Name:\s*(.+)", message_text)
     customer_name = name_match.group(1).strip() if name_match else "Customer"
-    
-    # Extract Package Name  
+
+    # Extract Package Name
     package_match = re.search(r"• 📦 Package:\s*(.+)", message_text)
     package_name = package_match.group(1).strip() if package_match else "Unknown Package"
-    
+
     # Extract Amount
     amount_match = re.search(r"• 💰 Amount:\s*₹(.+)", message_text)
     total_price = 0.0
@@ -3832,7 +3776,7 @@ async def cb_admin_cancel_order(callback: CallbackQuery):
             total_price = float(amount_str.replace(",", ""))
         except (ValueError, AttributeError):
             total_price = 0.0
-            
+
     print(f"✅ DEBUG: Cancel Order Step 1 - Parsed details: {customer_name}, {package_name}, ₹{total_price}")
 
     # Store parsed details in orders_data for step 2 to access
@@ -3845,8 +3789,8 @@ async def cb_admin_cancel_order(callback: CallbackQuery):
         'customer_name': customer_name,  # Add customer name too
         'parsed_from_message': True  # Flag to indicate this was parsed
     }
-    
-    # Save updated order data 
+
+    # Save updated order data
     save_data_to_json(orders_data, "orders.json")
 
     # Show cancellation reason options with smart button format
@@ -3917,11 +3861,11 @@ async def cb_admin_cancel_reason(callback: CallbackQuery):
     order_id = callback_parts[2] if len(callback_parts) > 2 else None
     customer_id = None
     reason_type = None
-    
+
     if not order_id:
         await callback.answer("❌ Missing order ID!", show_alert=True)
         return
-    
+
     if len(callback_parts) >= 5:
         # Smart format: cancel_reason_ORDER_ID_CUSTOMER_ID_REASON
         try:
@@ -3945,7 +3889,7 @@ async def cb_admin_cancel_reason(callback: CallbackQuery):
 
     # Get order details from step 1 parsing (stored in orders_data)
     print(f"🔍 DEBUG: Cancel Order Step 2 - Getting parsed details from storage...")
-    
+
     if order_id in orders_data and orders_data[order_id].get('parsed_from_message'):
         # Use parsed details from step 1
         order = orders_data[order_id]
@@ -3958,7 +3902,7 @@ async def cb_admin_cancel_reason(callback: CallbackQuery):
         print(f"⚠️ DEBUG: Cancel Order Step 2 - Parsed details not found, using fallback")
         if order_id in orders_data:
             order = orders_data[order_id]
-            customer_name = "Customer"  
+            customer_name = "Customer"
             package_name = order.get('package_name', 'Unknown Package')
             total_price = order.get('total_price', 0.0)
         else:

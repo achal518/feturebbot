@@ -1422,24 +1422,25 @@ def register_service_handlers(dp, require_account):
 
         if platform == "instagram":
             text = """
-📷 <b>Instagram Services</b>
+📸 <b>Instagram Services</b>
 
-🌟 <b>Premium Instagram Growth Services</b>
+🚀 <b>Select a service below to start boosting your Instagram profile.</b>
 
-✅ <b>High Quality Features:</b>
-• Real & Active Users Only
-• Instant Start (0-30 minutes)
-• High Retention Rate (90%+)
-• Safe & Secure Methods
-• 24/7 Customer Support
+🎯 <b>Inside each service, you'll find a variety of packages:</b>
+• 💰 <b>Economy</b> - Budget-friendly options
+• 📈 <b>Standard</b> - Best value for money  
+• ⭐ <b>Premium</b> - High-quality guaranteed
+• 🇮🇳 <b>Indian Premium</b> - Local targeting
+• 👑 <b>VIP Elite</b> - Ultimate quality & speed
 
-💰 <b>Competitive Pricing:</b>
-• Followers: ₹0.50 per follower
-• Likes: ₹0.30 per like
-• Views: ₹0.10 per view
-• Comments: ₹0.80 per comment
+✨ <b>Features:</b>
+• 🔥 100% Real & Active Users
+• ⚡ Lightning Fast Delivery
+• 🛡️ High Retention Guarantee
+• 🔒 Safe & Secure Methods
+• 💬 24/7 Premium Support
 
-💡 <b>अपनी जरूरत का package चुनें:</b>
+💡 <b>Please select the service you require:</b>
 """
             await safe_edit_message(callback, text, get_service_packages("instagram"))
 

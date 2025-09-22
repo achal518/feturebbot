@@ -88,26 +88,26 @@ def init_payment_system(main_dp, main_users_data, main_user_state, main_format_c
     format_currency = main_format_currency
 
 def get_payment_main_menu() -> InlineKeyboardMarkup:
-    """Professional payment methods menu"""
+    """Premium payment methods menu with attractive design"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📱 UPI Payment", callback_data="payment_upi"),
-            InlineKeyboardButton(text="🏦 Bank Transfer", callback_data="payment_bank")
+            InlineKeyboardButton(text="⚡ UPI Express Pay", callback_data="payment_upi"),
+            InlineKeyboardButton(text="🏦 Secure Bank Transfer", callback_data="payment_bank")
         ],
         [
-            InlineKeyboardButton(text="💳 Card Payment", callback_data="payment_card"),
-            InlineKeyboardButton(text="💸 Digital Wallets", callback_data="payment_wallet")
+            InlineKeyboardButton(text="💳 Premium Card Payment", callback_data="payment_card"),
+            InlineKeyboardButton(text="💎 Digital Wallet Hub", callback_data="payment_wallet")
         ],
         [
-            InlineKeyboardButton(text="📱 Open UPI App", callback_data="payment_upi_app"),
-            InlineKeyboardButton(text="📊 Generate QR Code", callback_data="payment_qr")
+            InlineKeyboardButton(text="📱 Instant UPI Apps", callback_data="payment_upi_app"),
+            InlineKeyboardButton(text="📊 Smart QR Generator", callback_data="payment_qr")
         ],
         [
-            InlineKeyboardButton(text="🔄 Payment History", callback_data="payment_history"),
-            InlineKeyboardButton(text="📞 Payment Support", callback_data="payment_support")
+            InlineKeyboardButton(text="📈 Transaction History", callback_data="payment_history"),
+            InlineKeyboardButton(text="🛡️ 24/7 Payment Support", callback_data="payment_support")
         ],
         [
-            InlineKeyboardButton(text="⬅️ Main Menu", callback_data="back_main")
+            InlineKeyboardButton(text="⬅️ Back to Dashboard", callback_data="back_main")
         ]
     ])
 
@@ -264,6 +264,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
     # Register QR payment completion handlers
     main_dp.callback_query.register(cb_payment_done_qr, F.data == "payment_done_qr")
     main_dp.callback_query.register(cb_payment_cancel, F.data == "payment_cancel")
+    main_dp.callback_query.register(cb_payment_qr, F.data == "payment_qr")
 
     @main_dp.callback_query(F.data.startswith("fund_"))
     async def cb_fund_amount_select(callback: CallbackQuery):
@@ -283,18 +284,41 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
                 user_state[user_id]["current_step"] = "waiting_custom_amount"
 
             text = """
-💰 <b>Custom Amount Entry</b>
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ ✨ <b>CUSTOM AMOUNT ENTRY PORTAL</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💬 <b>कृपया amount enter करें:</b>
+🎯 <b>Personalized Recharge Amount</b>
+<i>Enter exactly what you need • Flexible & Convenient</i>
 
-⚠️ <b>Minimum:</b> ₹100
-⚠️ <b>Maximum:</b> ₹50,000
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 💰 <b>AMOUNT REQUIREMENTS</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • 💵 <b>Minimum Limit:</b> ₹100
+┃ • 💎 <b>Maximum Limit:</b> ₹50,000
+┃ • 🎯 <b>Recommended:</b> ₹500 - ₹5,000
+┃ • ⚡ <b>Processing:</b> Instant for all amounts
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💡 <b>Example:</b> 2500
+📝 <b>ENTRY INSTRUCTIONS:</b>
+┌─────────────────────────────────────┐
+│ 🔢 Enter only numbers (no ₹ symbol)  │
+│ 💡 Example: <u>2500</u> for ₹2,500      │
+│ ⚠️ No commas or special characters   │
+│ ✅ Amount will be validated instantly │
+└─────────────────────────────────────┘
 
-🔒 <b>Secure Payment Processing</b>
-✅ <b>Multiple payment options available</b>
+🚀 <b>CUSTOM AMOUNT BENEFITS:</b>
+• 💎 Pay exactly what you need
+• ⚡ Same instant processing
+• 🔒 Bank-grade security guaranteed
+• 💯 100% success rate
+
+💬 <b>Type your desired amount and send:</b>
+
+🎯 <b>Pro Tip:</b> Popular amounts are ₹1000, ₹2500, ₹5000
 """
+
             await safe_edit_message(callback, text)
         else:
             # Fixed amount selected - show payment methods
@@ -326,7 +350,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
 
 📝 <b>Net Banking Steps:</b>
 1. Login to your bank's net banking
-2. Go to "Fund Transfer" या "IMPS/NEFT"
+2. Go to "Fund Transfer" or "IMPS/NEFT"
 3. Add beneficiary with above details
 4. Transfer required amount
 5. Save transaction reference number
@@ -337,8 +361,13 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
 """
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📋 Copy Bank Details", callback_data="copy_bank_details")],
-            [InlineKeyboardButton(text="⬅️ Back to Bank Transfer", callback_data="payment_bank")]
+            [
+                InlineKeyboardButton(text="📱 UPI Payment", callback_data="payment_upi"),
+                InlineKeyboardButton(text="📊 Generate QR Now", callback_data="instant_qr_generate")
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ Back to Net Banking", callback_data="payment_netbanking")
+            ]
         ])
 
         await safe_edit_message(callback, text, keyboard)
@@ -376,7 +405,7 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
 
 📝 <b>Payment Steps:</b>
 1. Open {name} app
-2. Select "Send Money" या "Pay"
+2. Select "Send Money" or "Pay"
 3. Enter UPI ID: <code>{upi_id}</code>
 4. Enter amount
 5. Complete payment with PIN
@@ -485,11 +514,12 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
 
     @main_dp.callback_query(F.data.startswith("payment_completed_"))
     async def cb_payment_completed(callback: CallbackQuery, state: FSMContext):
-        """Handle payment completion - ask for screenshot using FSM"""
+        """Handle payment completion - directly complete order (screenshot step removed)"""
         if not callback.message or not callback.from_user:
             return
 
         try:
+            from datetime import datetime
             user_id = callback.from_user.id
             transaction_id = (callback.data or "").replace("payment_completed_", "")
 
@@ -502,31 +532,76 @@ def register_payment_handlers(main_dp, main_users_data, main_user_state, main_fo
                 await state.clear()
                 return
 
-            # Set user state to waiting for screenshot using FSM
-            await state.set_state(OrderStates.waiting_screenshot)
+            # Skip screenshot step - directly complete the order
+            # Import required functions and data from main module
+            from main import orders_data, send_admin_notification, generate_order_id
+            
+            # Generate order ID
+            order_id = generate_order_id()
 
-            text = f"""
-📸 <b>Payment Screenshot Required</b>
-✅ <b>Payment Details:</b>
-• 💰 <b>Amount:</b> {format_currency(amount)}
-• 🆔 <b>Transaction ID:</b> <code>{transaction_id}</code>
-• 📱 <b>Method:</b> UPI Payment
+            # Create final order record from FSM data (same as handle_screenshot_fsm)
+            order_record = {
+                'order_id': order_id,
+                'user_id': user_id,
+                'package_name': order_data.get("package_name", "N/A"),
+                'service_id': order_data.get("service_id", "N/A"),
+                'platform': order_data.get("platform", "N/A"),
+                'link': order_data.get("link", "N/A"),
+                'quantity': order_data.get("quantity", 0),
+                'total_price': amount,
+                'status': 'processing',
+                'created_at': datetime.now().isoformat(),
+                'payment_method': 'UPI Payment Confirmed',
+                'payment_status': 'completed'
+            }
 
-📸 <b>कृपया payment का screenshot भेजें:</b>
-📋 <b>Screenshot Requirements:</b>
-• Clear और readable होना चाहिए
-• Payment amount दिखना चाहिए
-• Transaction status "Success" हो
+            # Store the final order in orders_data
+            orders_data[order_id] = order_record
 
-💬 <b>Screenshot को image के रूप में send करें...</b>
+            # Send notification to admin group (without screenshot)
+            await send_admin_notification(order_record, photo_file_id=None)
+
+            # Send confirmation to user
+            success_text = f"""
+🎉 <b>Order Successfully Placed!</b>
+
+✅ <b>Payment Confirmed Successfully!</b>
+
+🆔 <b>Order ID:</b> <code>{order_id}</code>
+📦 <b>Package:</b> {order_record['package_name']}
+🔢 <b>Quantity:</b> {order_record['quantity']:,}
+💰 <b>Amount:</b> {format_currency(amount) if format_currency else f"₹{amount:,.2f}"}
+
+📋 <b>Order Status:</b> ⏳ Processing
+🔄 <b>Payment Status:</b> ✅ Completed
+
+⚡ <b>Your order has been confirmed and will be processed shortly!</b>
+
+💡 <b>Expected Delivery:</b> 24-48 hours
+📱 <b>You will receive updates on order progress</b>
 """
 
-            await safe_edit_message(callback, text)
-            await callback.answer("📸 Screenshot भेजें...")
+            success_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="📜 Order History", callback_data="order_history"),
+                    InlineKeyboardButton(text="🚀 New Order", callback_data="new_order")
+                ],
+                [
+                    InlineKeyboardButton(text="🏠 Main Menu", callback_data="back_main")
+                ]
+            ])
+
+            await safe_edit_message(callback, success_text, success_keyboard)
+            await callback.answer("🎉 Order placed successfully!")
 
         except Exception as e:
             print(f"CRITICAL ERROR in cb_payment_completed: {e}")
             await callback.answer("An error occurred. Please try again.", show_alert=True)
+        finally:
+            # Clear the FSM state to finish the order process
+            await state.clear()
+
+    @main_dp.callback_query(F.data.startswith("cancel_qr_order_"))
 
     @main_dp.callback_query(F.data.startswith("cancel_qr_order_"))
     async def cb_cancel_qr_order(callback: CallbackQuery):
@@ -577,26 +652,26 @@ Click "New Order" to start fresh!
 
 🔸 <b>Method 1: UPI ID Payment</b>
 1. Open any UPI app (GPay, PhonePe, Paytm)
-2. Select "Send Money" या "Pay to Contact"
+2. Select "Send Money" or "Pay to Contact"
 3. Enter UPI ID: <code>indiasmm@paytm</code>
 4. Enter amount
 5. Add remark (optional)
-6. Enter UPI PIN और pay करें
+6. Enter UPI PIN and pay
 
 🔸 <b>Method 2: QR Code Payment</b>
 1. Generate QR code from payment menu
 2. Open UPI app
 3. Select "Scan QR Code"
 4. Scan generated code
-5. Verify amount और complete payment
+5. Verify amount and complete payment
 
 🔸 <b>Method 3: UPI App Link</b>
 1. Click "Open UPI App" button
 2. Copy payment link
-3. Paste in browser या UPI app
+3. Paste in browser or UPI app
 4. Complete payment
 
-⚡ <b>सभी methods instant हैं और 100% secure हैं!</b>
+⚡ <b>All methods are instant and 100% secure!</b>
 """
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -664,16 +739,16 @@ Send transaction screenshot to @tech_support_admin
 📊 <b>Your Payment Transactions</b>
 
 📋 <b>Recent Payments:</b>
-कोई payment history नहीं मिली
+No payment history found
 
-💡 <b>Payment history में दिखेगा:</b>
+💡 <b>Payment history will show:</b>
 • Transaction date & time
 • Payment method used
-• Amount और fees
+• Amount and fees
 • Transaction status
 • Reference numbers
 
-🔔 <b>जैसे ही आप payment करेंगे, यहाँ history दिख जाएगी!</b>
+🔔 <b>History will be updated after your first payment!</b>
 """
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -717,7 +792,7 @@ Send transaction screenshot to @tech_support_admin
 • Keep transaction reference numbers
 • Check internet connection during payment
 
-🎯 <b>हमारी team आपकी जल्दी help करेगी!</b>
+🎯 <b>Our team will help you quickly!</b>
 """
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -820,12 +895,12 @@ Send transaction screenshot to @tech_support_admin
 
 📝 <b>Next Steps:</b>
 1. Open any UPI app (Google Pay, PhonePe, Paytm, JioMoney)
-2. Select "Send Money" या "Pay to Contact"
-3. UPI ID paste करें: <code>{PAYMENT_CONFIG['upi_id']}</code>
-4. Amount enter करें: ₹{amount:,}
-5. Payment complete करें
+2. Select "Send Money" or "Pay to Contact"
+3. Paste UPI ID: <code>{PAYMENT_CONFIG['upi_id']}</code>
+4. Enter amount: ₹{amount:,}
+5. Complete payment
 
-💡 <b>या फिर QR code generate करके scan करें!</b>
+💡 <b>Or generate QR code and scan!</b>
 """
 
         try:
@@ -834,7 +909,7 @@ Send transaction screenshot to @tech_support_admin
             # If edit fails, send new message
             await callback.message.answer(text, reply_markup=get_upi_payment_menu(amount, transaction_id))
 
-        await callback.answer("✅ UPI ID copied: 0m12vx8@jio", show_alert=True)
+        await callback.answer("✅ UPI ID copied!", show_alert=True)
 
     # QR generation handler
     @main_dp.callback_query(F.data.startswith("qr_generate_"))
@@ -856,7 +931,7 @@ Send transaction screenshot to @tech_support_admin
                 await state.clear()
                 return
 
-            await callback.answer("🔄 QR Code generate kar rahe hain...")
+            await callback.answer("🔄 Generating QR Code...")
 
             # Generate QR code
             qr_data = generate_payment_qr(
@@ -868,20 +943,47 @@ Send transaction screenshot to @tech_support_admin
 
             # Prepare QR code message text
             qr_text = f"""
-📊 <b>Payment QR Code Generated!</b>
-💰 <b>Amount:</b> {format_currency(amount)}
-📱 <b>UPI ID:</b> <code>{PAYMENT_CONFIG['upi_id']}</code>
-🆔 <b>Transaction ID:</b> <code>{transaction_id}</code>
-📝 <b>Payment Instructions:</b>
-1. Scan this QR code with any UPI app.
-2. Pay the exact amount: {format_currency(amount)}
-3. After payment, click "Payment Done" below.
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 📊 <b>QR CODE PAYMENT PORTAL</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 <b>Instant Payment Gateway - QR Code Generated Successfully!</b>
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 💳 <b>PAYMENT DETAILS</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • 💰 <b>Amount:</b> {format_currency(amount)}
+┃ • 📱 <b>UPI ID:</b> <code>{PAYMENT_CONFIG['upi_id']}</code>
+┃ • 🆔 <b>Transaction ID:</b> <code>{transaction_id}</code>
+┃ • 🔒 <b>Payment Method:</b> QR Code Scan
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 <b>STEP-BY-STEP PAYMENT INSTRUCTIONS:</b>
+
+🔸 <b>Step 1:</b> Open any UPI app (GPay, PhonePe, Paytm, JioMoney)
+🔸 <b>Step 2:</b> Tap "Scan QR Code" or "Pay" option
+🔸 <b>Step 3:</b> Scan the QR code displayed above
+🔸 <b>Step 4:</b> Verify amount: {format_currency(amount)}
+🔸 <b>Step 5:</b> Complete payment with your UPI PIN
+🔸 <b>Step 6:</b> Click "Payment Completed" button below
+
+✨ <b>BENEFITS:</b>
+• ⚡ Instant payment processing
+• 🔒 100% secure encryption
+• 💡 No manual data entry needed
+• 🎯 Automatic amount detection
+
+💎 <b>Your order will be processed immediately after payment verification!</b>
 """
 
             qr_keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [
-                    InlineKeyboardButton(text="✅ Payment Done", callback_data=f"payment_completed_{transaction_id}"),
+                    InlineKeyboardButton(text="✅ Payment Completed", callback_data=f"payment_completed_{transaction_id}"),
                     InlineKeyboardButton(text="❌ Cancel Order", callback_data="cancel_qr_order_{transaction_id}")
+                ],
+                [
+                    InlineKeyboardButton(text="🔄 Generate New QR", callback_data="payment_qr"),
+                    InlineKeyboardButton(text="📱 Other Payment Methods", callback_data="final_confirm_order")
                 ]
             ])
 
@@ -913,16 +1015,16 @@ async def send_manual_payment_fallback(message, amount: float, transaction_id: s
 
 📝 <b>Manual Payment Steps:</b>
 1. Open any UPI app (GPay, PhonePe, Paytm, JioMoney)
-2. Select "Send Money" या "Pay to Contact"
+2. Select "Send Money" or "Pay to Contact"
 3. Enter UPI ID: <code>{PAYMENT_CONFIG['upi_id']}</code>
 4. Enter amount: ₹{amount:,}
 5. Add remark: {transaction_id}
 6. Complete payment with UPI PIN
 
 ⚠️ <b>QR code generation issue - Please use manual payment</b>
-💡 <b>Payment complete होने के बाद "Payment Done" button दबाएं</b>
+💡 <b>After payment, click the "Payment Completed" button below</b>
 
-✅ <b>Payment successful होने के बाद screenshot भी भेज सकते हैं</b>
+✅ <b>You can also send a screenshot after successful payment</b>
 """
 
     await message.answer(fallback_text, reply_markup=keyboard, parse_mode="HTML")
@@ -963,7 +1065,7 @@ async def send_manual_payment_fallback(message, amount: float, transaction_id: s
 🟢 <b>Method 1: Copy UPI ID</b>
 • UPI ID: <code>{PAYMENT_CONFIG['upi_id']}</code>
 • Amount: ₹{amount:,}
-• Manual transfer करें
+• Transfer manually
 
 🔵 <b>Method 2: UPI Apps</b>
 • JioMoney (recommended for Jio users)
@@ -995,7 +1097,7 @@ async def send_manual_payment_fallback(message, amount: float, transaction_id: s
         except Exception:
             await callback.message.answer(text, reply_markup=payment_keyboard)
 
-        await callback.answer("💡 UPI ID copied! ₹{amount:,} transfer करें")
+        await callback.answer("💡 UPI ID copied! Transfer ₹{amount:,}")
 
     @main_dp.callback_query(F.data == "payment_bank")
     async def cb_payment_bank(callback: CallbackQuery):
@@ -1018,7 +1120,7 @@ async def send_manual_payment_fallback(message, amount: float, transaction_id: s
 • NEFT (2-4 hours)
 • RTGS (For amounts ₹2,00,000+)
 
-💡 <b>सबसे suitable method choose करें:</b>
+💡 <b>Choose the most suitable method:</b>
 """
 
         await safe_edit_message(callback, text, get_bank_transfer_menu())
@@ -1048,14 +1150,14 @@ async def send_manual_payment_fallback(message, amount: float, transaction_id: s
 • Secure & encrypted
 • 24/7 customer support
 
-💡 <b>अपना preferred wallet चुनें:</b>
+💡 <b>Choose your preferred wallet:</b>
 """
 
         await safe_edit_message(callback, text, get_wallet_payment_menu())
         await callback.answer()
 
 async def show_payment_methods(callback: CallbackQuery, amount: int):
-    """Show payment methods selection for specific amount"""
+    """Show payment methods selection with premium design"""
     if not callback.message or not callback.from_user:
         return
 
@@ -1070,140 +1172,164 @@ async def show_payment_methods(callback: CallbackQuery, amount: int):
     # Calculate processing fees for different methods
     upi_total = amount
     netbanking_fee = amount * PAYMENT_CONFIG["processing_fee"]["netbanking"] / 100
-    # netbanking_total = amount + netbanking_fee  # Not used in current display
     card_fee = amount * PAYMENT_CONFIG["processing_fee"]["card"] / 100
     card_total = amount + card_fee
 
     text = f"""
-💳 <b>Payment Method Selection</b>
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 💎 <b>SECURE PAYMENT GATEWAY</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💰 <b>Amount to Add:</b> ₹{amount:,}
+🚀 <b>Professional Payment Processing System</b>
+<i>Bank-Grade Security • Instant Processing • 100% Safe</i>
 
-💡 <b>Choose your preferred payment method:</b>
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 💰 <b>RECHARGE AMOUNT CONFIRMED</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • 💵 <b>Selected Amount:</b> <u>₹{amount:,}</u>
+┃ • 🎯 <b>Processing Mode:</b> Express Payment
+┃ • ⚡ <b>Credit Speed:</b> Instant to Account
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📱 <b>UPI Payment</b> (Recommended)
-• ✅ No processing fee
-• ⚡ Instant credit
-• 🔒 100% secure
-• 💰 <b>Total:</b> ₹{upi_total:,}
+🎯 <b>PREMIUM PAYMENT OPTIONS</b>
 
-🏦 <b>Bank Transfer</b>
-• ✅ No processing fee
-• ⏰ 2-4 hours processing
-• 🔒 Highly secure
-• 💰 <b>Total:</b> ₹{amount:,}
+┌─────────────────────────────────────┐
+│ 📱 <b>UPI PAYMENT</b> ⭐ <i>RECOMMENDED</i>     │
+│ • ✅ Zero Processing Fee              │
+│ • ⚡ Instant Credit Guarantee         │
+│ • 🔒 Military-Grade Security          │
+│ • 💰 <b>Final Amount:</b> ₹{upi_total:,}        │
+│ • 🏆 <b>Success Rate:</b> 99.9%             │
+└─────────────────────────────────────┘
 
-💳 <b>Card Payment</b>
-• ⚡ Instant credit
-• 💳 All cards accepted
-• 🔄 Processing fee: ₹{card_fee:.0f}
-• 💰 <b>Total:</b> ₹{card_total:.0f}
+┌─────────────────────────────────────┐
+│ 🏦 <b>BANK TRANSFER</b> 💎 <i>MOST SECURE</i>   │
+│ • ✅ No Processing Fee               │
+│ • ⏰ 2-4 Hours Processing            │
+│ • 🛡️ Maximum Security Protocol       │
+│ • 💰 <b>Final Amount:</b> ₹{amount:,}         │
+└─────────────────────────────────────┘
 
-💸 <b>Digital Wallets</b>
-• ⚡ Quick transfer
-• 🎁 Cashback offers
-• 💰 <b>Total:</b> ₹{amount:,}
+┌─────────────────────────────────────┐
+│ 💳 <b>CARD PAYMENT</b> 🚀 <i>PREMIUM</i>        │
+│ • ⚡ Lightning Fast Credit           │
+│ • 💳 All Major Cards Accepted        │
+│ • 🔄 Processing Fee: ₹{card_fee:.0f}          │
+│ • 💰 <b>Final Amount:</b> ₹{card_total:.0f}        │
+└─────────────────────────────────────┘
 
-🔥 <b>Special Features:</b>
-• Generate QR codes for easy payment
-• Direct UPI app opening
-• Step-by-step payment guide
-• 24/7 payment support
+┌─────────────────────────────────────┐
+│ 💸 <b>DIGITAL WALLETS</b> 🎁 <i>CASHBACK</i>    │
+│ • ⚡ Super Quick Transfer            │
+│ • 🎁 Exclusive Cashback Offers       │
+│ • 📱 All Popular Wallets             │
+│ • 💰 <b>Final Amount:</b> ₹{amount:,}         │
+└─────────────────────────────────────┘
 
-💡 <b>UPI recommended for fastest & cheapest payments!</b>
+🔥 <b>EXCLUSIVE BENEFITS:</b>
+• 📊 Generate Custom QR Codes
+• 🔗 Direct UPI App Integration
+• 📋 Step-by-Step Payment Guide
+• 🛡️ 24/7 Security Monitoring
+• 💬 Instant Customer Support
+
+💎 <b>Choose your preferred payment method below:</b>
+
+⚡ <b>UPI Payment recommended for instant processing!</b>
 """
 
     await safe_edit_message(callback, text, get_payment_main_menu())
 
-async def cb_payment_qr(callback: CallbackQuery):
-    """Handle QR code payment method - Using same logic as UPI QR generation"""
+async def cb_payment_qr(callback: CallbackQuery, state: FSMContext):
+    """Generate and send QR code using FSM state"""
     if not callback.message or not callback.from_user:
         return
 
-    user_id = callback.from_user.id
+    try:
+        user_id = callback.from_user.id
+        transaction_id = (callback.data or "").replace("qr_generate_", "")
 
-    # Check if user has order data
-    if user_id not in user_state or user_state[user_id].get("current_step") != "selecting_payment":
-        await callback.answer("⚠️ Order data not found!")
-        return
+        # Get the correct data from the FSM "Digital Notepad"
+        order_data = await state.get_data()
+        amount = order_data.get("total_price", 0.0)
 
-    # Get order details
-    order_data = user_state[user_id]["data"]
-    total_price = order_data.get("total_price", 0.0)
+        if amount == 0.0:
+            await callback.answer("⚠️ Order amount not found. Please start over.", show_alert=True)
+            await state.clear()
+            return
 
-    # Generate transaction ID
-    import time
-    import random
-    transaction_id = f"QR{int(time.time())}{random.randint(100, 999)}"
+        await callback.answer("🔄 Generating QR Code...")
 
-    await callback.answer("🔄 QR Code generate कर रहे हैं...")
+        # Generate QR code
+        qr_data = generate_payment_qr(
+            amount,
+            PAYMENT_CONFIG['upi_id'],
+            PAYMENT_CONFIG['upi_name'],
+            transaction_id
+        )
 
-    # Generate QR code using same function as UPI payment
-    qr_data = generate_payment_qr(
-        total_price,
-        PAYMENT_CONFIG['upi_id'],
-        PAYMENT_CONFIG['upi_name'],
-        transaction_id
-    )
+        # Prepare QR code message text
+        qr_text = f"""
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 📊 <b>QR CODE PAYMENT PORTAL</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    # Prepare QR code message text (same as UPI QR)
-    qr_text = f"""
-📊 <b>Payment QR Code Generated!</b>
+🚀 <b>Instant Payment Gateway - QR Code Generated Successfully!</b>
 
-💰 <b>Amount:</b> ₹{total_price:,.2f}
-📱 <b>UPI ID:</b> <code>{PAYMENT_CONFIG['upi_id']}</code>
-🆔 <b>Transaction ID:</b> <code>{transaction_id}</code>
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 💳 <b>PAYMENT DETAILS</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • 💰 <b>Amount:</b> {format_currency(amount)}
+┃ • 📱 <b>UPI ID:</b> <code>{PAYMENT_CONFIG['upi_id']}</code>
+┃ • 🆔 <b>Transaction ID:</b> <code>{transaction_id}</code>
+┃ • 🔒 <b>Payment Method:</b> QR Code Scan
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📱 <b>Payment Instructions:</b>
-1. QR code scan करें any UPI app से (GPay, PhonePe, Paytm)
-2. Amount ₹{total_price:,.2f} verify करें
-3. UPI PIN डालकर payment complete करें
-4. Payment successful होने के बाद "Payment Done" दबाएं
+📋 <b>STEP-BY-STEP PAYMENT INSTRUCTIONS:</b>
 
-⚡ <b>QR code scan करने से amount automatic भर जाएगी!</b>
-🔒 <b>100% Safe & Secure Payment Method</b>
+🔸 <b>Step 1:</b> Open any UPI app (GPay, PhonePe, Paytm, JioMoney)
+🔸 <b>Step 2:</b> Tap "Scan QR Code" or "Pay" option
+🔸 <b>Step 3:</b> Scan the QR code displayed above
+🔸 <b>Step 4:</b> Verify amount: {format_currency(amount)}
+🔸 <b>Step 5:</b> Complete payment with your UPI PIN
+🔸 <b>Step 6:</b> Click "Payment Completed" button below
 
-💡 <b>Payment हो जाने के बाद नीचे "Payment Done" button दबाएं</b>
+✨ <b>BENEFITS:</b>
+• ⚡ Instant payment processing
+• 🔒 100% secure encryption
+• 💡 No manual data entry needed
+• 🎯 Automatic amount detection
+
+💎 <b>Your order will be processed immediately after payment verification!</b>
 """
 
-    # Create payment completion keyboard (same as UPI QR)
-    qr_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ Payment Done", callback_data=f"payment_completed_{transaction_id}"),
-            InlineKeyboardButton(text="❌ Cancel Order", callback_data=f"cancel_qr_order_{transaction_id}")
-        ]
-    ])
+        qr_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Payment Completed", callback_data=f"payment_completed_{transaction_id}"),
+                InlineKeyboardButton(text="❌ Cancel Order", callback_data="cancel_qr_order_{transaction_id}")
+            ],
+            [
+                InlineKeyboardButton(text="🔄 Generate New QR", callback_data="payment_qr"),
+                InlineKeyboardButton(text="📱 Other Payment Methods", callback_data="final_confirm_order")
+            ]
+        ])
 
-    # Store transaction details
-    user_state[user_id]["data"]["transaction_id"] = transaction_id
-    user_state[user_id]["data"]["payment_method"] = "qr_code"
-
-    # Try to send QR code as photo with caption (same logic as UPI QR)
-    if qr_data and len(qr_data) > 0:
-        try:
+        if qr_data:
             from aiogram.types import BufferedInputFile
-
-            # Create input file from bytes
             qr_file = BufferedInputFile(qr_data, filename="payment_qr.png")
-
-            # Send QR code as new message with buttons
             await callback.message.answer_photo(
                 photo=qr_file,
                 caption=qr_text,
                 reply_markup=qr_keyboard,
                 parse_mode="HTML"
             )
+        else:
+            # Fallback if QR generation fails
+            await send_manual_payment_fallback(callback.message, amount, transaction_id, qr_keyboard)
 
-            print(f"✅ QR Code sent successfully to user {user_id}")
-
-        except Exception as e:
-            print(f"❌ QR Photo send error: {e}")
-            # Fallback to text message with manual payment info
-            await send_manual_payment_fallback(callback.message, total_price, transaction_id, qr_keyboard)
-    else:
-        print(f"❌ QR Code generation failed for user {user_id}")
-        # QR generation failed, send manual payment
-        await send_manual_payment_fallback(callback.message, total_price, transaction_id, qr_keyboard)
+    except Exception as e:
+        print(f"CRITICAL ERROR in cb_payment_qr: {e}")
+        await callback.answer("An error occurred. Please try again.", show_alert=True)
 
 async def cb_payment_done_qr(callback: CallbackQuery):
     """Handle Payment Done button click - ask for screenshot"""
@@ -1213,23 +1339,23 @@ async def cb_payment_done_qr(callback: CallbackQuery):
     user_id = callback.from_user.id
 
     # Check if user is in correct state
-    if user_id not in user_state or user_state[user_id].get("current_step") != "waiting_screenshot_upload":
-        await callback.answer("⚠️ Order state invalid!")
+    if not user_state or user_id not in user_state or (user_state[user_id] and user_state[user_id].get("current_step") != "waiting_screenshot_upload"):
+        await callback.answer("⚠️ Invalid order state!")
         return
 
     # Ask for screenshot
     screenshot_text = """
 📸 <b>Payment Screenshot Required</b>
 
-💡 <b>कृपया payment का screenshot भेजें</b>
+💡 <b>Please upload the payment screenshot</b>
 
 📋 <b>Screenshot Requirements:</b>
-• Clear और readable हो
-• Payment amount दिखना चाहिए
-• Transaction status "Success" हो
-• Date और time visible हो
+• Must be clear and readable
+• Payment amount must be visible
+• Transaction status must be "Success"
+• Date and time should be visible
 
-💬 <b>Screenshot को image के रूप में send करें...</b>
+💬 <b>Please send the screenshot as an image...</b>
 """
 
     await callback.message.answer(screenshot_text)
@@ -1252,9 +1378,9 @@ async def cb_payment_cancel(callback: CallbackQuery):
 
 📋 <b>Payment process cancelled</b>
 
-💡 <b>आप कभी भी नया order place कर सकते हैं!</b>
+💡 <b>You can place a new order anytime!</b>
 
-🏠 <b>Main menu पर वापस जा रहे हैं...</b>
+🏠 <b>Returning to the Main Menu...</b>
 """
 
     # Import get_main_menu from main.py

@@ -6,13 +6,12 @@ All account-related functionality and handlers
 
 import time
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable, Union
 from aiogram import F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 import pytz
 
 # Global variables (will be initialized from main.py)
-from typing import Dict, Any, Callable, Optional, Union
 
 # Initialize with proper default values to avoid None type errors
 dp: Any = None
@@ -169,34 +168,34 @@ def init_account_handlers(main_dp, main_users_data, main_orders_data, main_requi
 
 # ========== ACCOUNT MENU BUILDERS ==========
 def get_account_menu() -> InlineKeyboardMarkup:
-    """Build my account sub-menu"""
+    """Build my account sub-menu with professional organization"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🔄 Refill History", callback_data="refill_history"),
-            InlineKeyboardButton(text="🔑 API Key", callback_data="api_key")
+            InlineKeyboardButton(text="📊 Order History", callback_data="order_history"),
+            InlineKeyboardButton(text="💳 Payment History", callback_data="refill_history")
         ],
         [
             InlineKeyboardButton(text="✏️ Edit Profile", callback_data="edit_profile"),
-            InlineKeyboardButton(text="📊 Statistics", callback_data="user_stats")
+            InlineKeyboardButton(text="📈 Account Statistics", callback_data="user_stats")
         ],
         [
-            InlineKeyboardButton(text="📜 Order History", callback_data="order_history"),
-            InlineKeyboardButton(text="🔔 Smart Alerts", callback_data="smart_alerts")
+            InlineKeyboardButton(text="🔑 API Management", callback_data="api_key"),
+            InlineKeyboardButton(text="🔔 Notifications", callback_data="smart_alerts")
         ],
         [
-            InlineKeyboardButton(text="🌐 Language / भाषा", callback_data="language_settings"),
-            InlineKeyboardButton(text="🎯 Preferences", callback_data="account_preferences")
+            InlineKeyboardButton(text="🌐 Language & Region", callback_data="language_settings"),
+            InlineKeyboardButton(text="⚙️ Account Settings", callback_data="account_preferences")
         ],
         [
-            InlineKeyboardButton(text="🔐 Security Settings", callback_data="security_settings"),
-            InlineKeyboardButton(text="💳 Payment Methods", callback_data="payment_methods")
+            InlineKeyboardButton(text="🔐 Security Center", callback_data="security_settings"),
+            InlineKeyboardButton(text="💰 Payment Methods", callback_data="payment_methods")
         ],
         [
-            InlineKeyboardButton(text="🔑 Copy Access Token", callback_data="copy_access_token"),
-            InlineKeyboardButton(text="🚪 Logout Account", callback_data="logout_account")
+            InlineKeyboardButton(text="🔑 Access Token", callback_data="copy_access_token"),
+            InlineKeyboardButton(text="🚪 Sign Out", callback_data="logout_account")
         ],
         [
-            InlineKeyboardButton(text="⬅️ Main Menu", callback_data="back_main")
+            InlineKeyboardButton(text="⬅️ Back to Dashboard", callback_data="back_main")
         ]
     ])
 
@@ -230,24 +229,36 @@ async def cb_my_account(callback: CallbackQuery):
     )
 
     text = f"""
-👤 <b>My Account Dashboard</b>
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 👤 <b>MY ACCOUNT DASHBOARD</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-👋 <b>Welcome back, {user_display_name}!</b>
+🎯 <b>Welcome back, {user_display_name}!</b>
+<i>Your personal SMM control center</i>
 
-📱 <b>Phone:</b> {user_data.get('phone_number', 'Not set')}
-📧 <b>Email:</b> {user_data.get('email', 'Not set')}
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 💰 <b>WALLET OVERVIEW</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • 💳 <b>Current Balance:</b> <u>{format_currency(user_data.get('balance', 0.0)) if format_currency else f"₹{user_data.get('balance', 0.0):.2f}"}</u>
+┃ • 💸 <b>Total Investment:</b> {format_currency(user_data.get('total_spent', 0.0)) if format_currency else f"₹{user_data.get('total_spent', 0.0):.2f}"}
+┃ • 🛒 <b>Orders Completed:</b> {user_data.get('orders_count', 0)} orders
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💰 <b>Balance:</b> {format_currency(user_data.get('balance', 0.0)) if format_currency else f"₹{user_data.get('balance', 0.0):.2f}"}
-📊 <b>Total Spent:</b> {format_currency(user_data.get('total_spent', 0.0)) if format_currency else f"₹{user_data.get('total_spent', 0.0):.2f}"}
-🛒 <b>Total Orders:</b> {user_data.get('orders_count', 0)}
-📅 <b>Member Since:</b> {join_date_formatted}
-🌍 <b>Your Timezone:</b> {timezone_info['name']} ({timezone_info['offset']})
-🕐 <b>Current Time:</b> {timezone_info['current_time']}
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 👤 <b>PROFILE INFORMATION</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ • 📱 <b>Mobile:</b> {user_data.get('phone_number', 'Not added')}
+┃ • 📧 <b>Email:</b> {user_data.get('email', 'Not added')}
+┃ • 📅 <b>Member Since:</b> {join_date_formatted}
+┃ • ⚡ <b>Status:</b> ✅ <b>Premium Active</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🔸 <b>Account Status:</b> ✅ Active
-🔸 <b>User ID:</b> <code>{user_id}</code>
+🌍 <b>Local Time:</b> {timezone_info['current_time']}
 
-💡 <b>Choose an option below to manage your account:</b>
+💎 <b>Account Management Tools</b>
+Select any option below to manage your account settings and preferences.
+
+✨ <b>Your success is our priority!</b>
 """
 
     if safe_edit_message:
@@ -265,7 +276,7 @@ async def cb_order_history(callback: CallbackQuery):
     # CRITICAL FIX: Force fresh data reload to avoid cached references
     from main import load_data_from_json
     import main
-    
+
     # Force reload fresh data directly from JSON file every time
     print(f"🔄 DEBUG: Force reloading fresh data from files...")
     fresh_orders_data = load_data_from_json("orders.json") 
@@ -310,19 +321,43 @@ async def cb_order_history(callback: CallbackQuery):
 
     if not user_orders:
         text = """
-📜 <b>Order History</b>
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 📜 <b>ORDER HISTORY CENTER</b>
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📋 <b>अभी तक कोई orders नहीं हैं</b>
+🎯 <b>Welcome to Your Order Management Dashboard!</b>
 
-🚀 <b>आपने अभी तक कोई orders place नहीं किए हैं!</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 <b>CURRENT STATUS</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💡 <b>First order करने के लिए:</b>
-• "New Order" पर click करें
-• अपना platform choose करें  
-• Package select करें
-• Order place करें
+📋 <b>No orders found in your history</b>
 
-✨ <b>India Social Panel में आपका स्वागत है!</b>
+🚀 <b>You haven't placed any orders yet - Let's get started!</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 <b>HOW TO PLACE YOUR FIRST ORDER</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+<b>Quick Start Guide:</b>
+1️⃣ Click "🚀 New Order" button below
+2️⃣ Choose your social media platform
+3️⃣ Select the perfect service package
+4️⃣ Complete payment and enjoy growth!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌟 <b>WHY CHOOSE US?</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ <b>100% Real & Active Users</b>
+⚡ <b>Instant Delivery (0-6 Hours)</b>
+🔒 <b>100% Safe & Secure</b>
+💰 <b>Best Prices Guaranteed</b>
+🎯 <b>24/7 Professional Support</b>
+
+💡 <b>Ready to boost your social media presence?</b>
+
+✨ <b>Your growth journey with India Social Panel starts here!</b>
 """
     else:
         text = f"""
@@ -364,7 +399,8 @@ async def cb_order_history(callback: CallbackQuery):
                         formatted_date = str(created_at)
                 else:
                     formatted_date = "Just now"
-            except:
+            except Exception as e:
+                print(f"Date formatting error: {e}")
                 formatted_date = "Recent"
 
             text += f"""
@@ -383,13 +419,13 @@ async def cb_order_history(callback: CallbackQuery):
 """
 
         text += """
-💡 <b>Order Details देखने के लिए:</b>
-• Order ID copy करें
-• Support को भेजें detailed info के लिए
+💡 <b>To view Order Details:</b>
+• Copy the Order ID
+• Send it to Support for detailed info
 
-📞 <b>Order में problem है?</b>
-• Support contact करें: @tech_support_admin
-• Order ID mention करना न भूलें
+📞 <b>Problem with your Order?</b>
+• Contact Support: @tech_support_admin
+• Don't forget to mention the Order ID
 """
 
     back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -403,7 +439,8 @@ async def cb_order_history(callback: CallbackQuery):
         ]
     ])
 
-    await safe_edit_message(callback, text, back_keyboard)
+    if safe_edit_message:
+        await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 # ========== REFILL HISTORY ==========
@@ -417,18 +454,19 @@ async def cb_refill_history(callback: CallbackQuery):
 
 💳 <b>Payment History Empty</b>
 
-आपने अभी तक कोई payment नहीं किया है।
+You haven't made any payments yet.
 
-💰 <b>Add funds करने के लिए:</b>
-• Main menu → Add Funds पर click करें
-• Amount select करें या custom amount enter करें
-• Payment method choose करें
-• Payment complete करें
+💰 <b>To add funds:</b>
+• Main menu → Click on Add Funds
+• Select amount or enter custom amount
+• Choose payment method
+• Complete payment
 
 🔐 <b>All transactions are secure and encrypted</b>
 """
 
-    await safe_edit_message(callback, text, get_back_to_account_keyboard())
+    if safe_edit_message:
+        await safe_edit_message(callback, text, get_back_to_account_keyboard())
     await callback.answer()
 
 # ========== API KEY MANAGEMENT ==========
@@ -534,7 +572,7 @@ async def cb_api_key(callback: CallbackQuery):
 • Automated Social Media Tools
 • Custom Application Integration
 
-⚠️ <b>Important:</b> प्रत्येक account में केवल एक ही API key create कर सकते हैं।
+⚠️ <b>Important:</b> You can only create one API key per account.
 
 💡 <b>Ready to create your professional API key?</b>
 """
@@ -556,14 +594,14 @@ async def cb_create_api_key(callback: CallbackQuery):
         text = """
 ⚠️ <b>API Key Already Exists</b>
 
-🔑 <b>आपके पास पहले से API key है!</b>
+🔑 <b>You already have an API key!</b>
 
 📋 <b>Options:</b>
-• API key देखने के लिए "View API Key" click करें
-• नई key चाहिए तो पहले current key को regenerate करें
-• API key delete करने के लिए support contact करें
+• Click "View API Key" to see your API key
+• If you need a new key, regenerate your current key first
+• Contact support to delete your API key
 
-💡 <b>Security reason से एक account में केवल एक API key allow है</b>
+💡 <b>For security reasons, only one API key is allowed per account</b>
 """
 
         back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -613,17 +651,17 @@ async def cb_create_api_key(callback: CallbackQuery):
 • 🛡️ <b>Encryption:</b> AES-256
 
 ⚠️ <b>Important Security Notes:</b>
-• API key को किसी के साथ share न करें
-• Secure environment में store करें
-• Regular monitoring करते रहें
-• Suspicious activity पर तुरंत regenerate करें
+• Don't share your API key with anyone
+• Store it in a secure environment
+• Monitor regularly for suspicious activity
+• Regenerate immediately on suspicious activity
 
-💡 <b>API key को copy करने के लिए above text को tap करें</b>
+💡 <b>Tap the above text to copy your API key</b>
 
 🎯 <b>Next Steps:</b>
-• Documentation पढ़ें
-• Test API calls करें
-• Integration start करें
+• Read the documentation
+• Test API calls
+• Start integration
 """
 
     success_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -656,9 +694,9 @@ async def cb_view_api_key(callback: CallbackQuery):
         text = """
 ⚠️ <b>No API Key Found</b>
 
-🔑 <b>आपके पास अभी तक कोई API key नहीं है</b>
+🔑 <b>You don't have an API key yet</b>
 
-💡 <b>Create करने के लिए "Create API Key" button click करें</b>
+💡 <b>Click the "Create API Key" button to create one</b>
 """
 
         back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -673,8 +711,8 @@ async def cb_view_api_key(callback: CallbackQuery):
     text = f"""
 🔑 <b>Your API Key</b>
 
-🔐 <b>Full API Key:</b>
-<code>{api_key}</code>
+🔐 <b>Full API Key (Click to Reveal):</b>
+<tg-spoiler><code>{api_key}</code></tg-spoiler>
 
 📊 <b>Key Information:</b>
 • 🆔 <b>Key ID:</b> {api_key[:16]}...
@@ -686,15 +724,17 @@ async def cb_view_api_key(callback: CallbackQuery):
 <code>https://api.indiasocialpanel.com/v1</code>
 
 🔑 <b>Authentication Header:</b>
-<code>Authorization: Bearer {api_key}</code>
+<tg-spoiler><code>Authorization: Bearer {api_key}</code></tg-spoiler>
 
-⚠️ <b>Security Warning:</b>
-• API key को कभी भी public repositories में store न करें
-• Environment variables का use करें
-• Regular basis पर key को regenerate करें
-• Unauthorized access monitor करते रहें
+⚠️ <b>Enhanced Security Features:</b>
+• 🔒 API key hidden by default for maximum security
+• 👆 Click on hidden areas to reveal sensitive information
+• 🚫 Never store your API key in public repositories
+• 🔧 Use environment variables
+• 🔄 Regenerate the key on a regular basis
+• 👀 Monitor for unauthorized access
 
-💡 <b>Tap on API key to copy it</b>
+💡 <b>Privacy Protected: Tap on hidden content to reveal API key</b>
 """
 
     view_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -727,8 +767,8 @@ async def cb_regenerate_api(callback: CallbackQuery):
 ⚠️ <b>Important Warning:</b>
 • Current API key will be permanently deleted
 • All applications using old key will stop working
-• आपको सभी applications में new key update करना होगा
-• यह action undo नहीं हो सकता
+• You will need to update the new key in all applications
+• This action cannot be undone
 
 🔒 <b>Security Benefits:</b>
 • Fresh new secure key generation
@@ -736,7 +776,7 @@ async def cb_regenerate_api(callback: CallbackQuery):
 • Enhanced security protection
 • Clean slate for API access
 
-💡 <b>क्या आप वाकई API key regenerate करना चाहते हैं?</b>
+💡 <b>Do you really want to regenerate the API key?</b>
 """
 
     confirm_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -798,7 +838,7 @@ async def cb_confirm_regenerate_api(callback: CallbackQuery):
 • Fresh authentication required
 • Clean security slate established
 
-💡 <b>Copy new API key और applications में update करें</b>
+💡 <b>Copy the new API key and update it in your applications</b>
 """
 
     success_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -839,7 +879,8 @@ async def cb_delete_api_key(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Back to API", callback_data="api_key")]
     ])
 
-    await safe_edit_message(callback, text, back_keyboard)
+    if safe_edit_message:
+        await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 async def cb_api_stats(callback: CallbackQuery):
@@ -876,7 +917,8 @@ async def cb_api_stats(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ API Dashboard", callback_data="api_key")]
     ])
 
-    await safe_edit_message(callback, text, back_keyboard)
+    if safe_edit_message:
+        await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 async def cb_api_docs(callback: CallbackQuery):
@@ -1009,7 +1051,7 @@ async def cb_test_api(callback: CallbackQuery):
         text = """
 ⚠️ <b>No API Key Found</b>
 
-🔑 <b>API testing के लिए पहले API key create करें</b>
+🔑 <b>Create an API key first for API testing</b>
 """
 
         back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -1189,7 +1231,8 @@ async def cb_copy_test_commands(callback: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ API Dashboard", callback_data="api_key")]
     ])
 
-    await safe_edit_message(callback, text, back_keyboard)
+    if safe_edit_message:
+        await safe_edit_message(callback, text, back_keyboard)
     await callback.answer()
 
 async def cb_copy_api_key(callback: CallbackQuery):
@@ -1205,20 +1248,25 @@ async def cb_copy_api_key(callback: CallbackQuery):
         text = f"""
 📋 <b>Your API Key (Ready to Copy)</b>
 
-🔑 <b>Full API Key:</b>
-<code>{api_key}</code>
+🔑 <b>Full API Key (Click to Reveal):</b>
+<tg-spoiler><code>{api_key}</code></tg-spoiler>
 
 📱 <b>How to Copy:</b>
-• <b>Mobile:</b> Long press on key above → Copy
-• <b>Desktop:</b> Triple click to select → Ctrl+C
+• <b>Mobile:</b> Tap hidden area above, then long press → Copy
+• <b>Desktop:</b> Click hidden area, then triple click → Ctrl+C
 
-💡 <b>API key को secure place में store करें</b>
+💡 <b>Enhanced Privacy Features:</b>
+• 🔒 API key hidden by default
+• 👆 Tap to reveal sensitive information
+• 💾 Store your API key in a secure place
 
 ⚠️ <b>Security Reminder:</b>
 • Keep it confidential
 • Use environment variables  
 • Never share publicly
 • Monitor usage regularly
+
+🛡️ <b>Privacy Protected: Key hidden until you click!</b>
 """
 
         back_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -1824,7 +1872,8 @@ async def cb_user_stats(callback: CallbackQuery):
 🎯 <b>Activity Level:</b> {'Active' if total_orders > 0 else 'New User'}
 """
 
-    await safe_edit_message(callback, text, get_back_to_account_keyboard())
+    if safe_edit_message:
+        await safe_edit_message(callback, text, get_back_to_account_keyboard())
     await callback.answer()
 
 # ========== NEW ACCOUNT FEATURES ==========
@@ -1869,17 +1918,17 @@ async def cb_language_settings(callback: CallbackQuery):
         return
 
     text = """
-🌐 <b>Language Settings / भाषा सेटिंग्स</b>
+🌐 <b>Language Settings</b>
 
 🗣️ <b>Available Languages:</b>
 
-🇮🇳 <b>हिंदी (Hindi)</b> - Default
+🇮🇳 <b>Hindi</b> - Default
 🇬🇧 <b>English</b> - Available
-🇮🇳 <b>मराठी (Marathi)</b> - Coming Soon
-🇮🇳 <b>தமிழ் (Tamil)</b> - Coming Soon
-🇮🇳 <b>বাংলা (Bengali)</b> - Coming Soon
+🇮🇳 <b>Marathi</b> - Coming Soon
+🇮🇳 <b>Tamil</b> - Coming Soon
+🇮🇳 <b>Bengali</b> - Coming Soon
 
-💡 <b>Current Language:</b> हिंदी + English (Mixed)
+💡 <b>Current Language:</b> English (Mixed)
 
 🔧 <b>Note:</b>
 Currently bot supports Hindi-English mix for better understanding.
@@ -2097,9 +2146,9 @@ async def cb_lang_region_indian(callback: CallbackQuery):
         return
 
     text = """
-🇮🇳 <b>Indian Languages / भारतीय भाषाएं</b>
+🇮🇳 <b>Indian Languages</b>
 
-🕉️ <b>राष्ट्रीय और क्षेत्रीय भाषाएं</b>
+🕉️ <b>National and Regional Languages</b>
 
 🗣️ <b>22 Official Languages + Regional dialects</b>
 
@@ -2108,7 +2157,7 @@ async def cb_lang_region_indian(callback: CallbackQuery):
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🇮🇳 हिंदी (Hindi)", callback_data="select_lang_hindi"),
+            InlineKeyboardButton(text="🇮🇳 Hindi", callback_data="select_lang_hindi"),
             InlineKeyboardButton(text="🇬🇧 English (India)", callback_data="select_lang_english_in")
         ],
         [
@@ -2133,7 +2182,7 @@ async def cb_lang_region_indian(callback: CallbackQuery):
         ],
         [
             InlineKeyboardButton(text="🇮🇳 অসমীয়া (Assamese)", callback_data="select_lang_assamese"),
-            InlineKeyboardButton(text="🇮🇳 संस्कृत (Sanskrit)", callback_data="select_lang_sanskrit")
+            InlineKeyboardButton(text="🇮🇳 Sanskrit", callback_data="select_lang_sanskrit")
         ],
         [
             InlineKeyboardButton(text="⬅️ Back to Language Settings", callback_data="language_settings")
@@ -2488,7 +2537,7 @@ async def cb_language_select(callback: CallbackQuery):
 • Region-specific content
 
 📢 <b>Notification:</b>
-आपको language ready होने पर notification मिल जाएगी!
+You will receive a notification when the language is ready!
 
 🙏 <b>Thank you for choosing India Social Panel!</b>
 """
@@ -2521,25 +2570,27 @@ async def cb_copy_access_token_myaccount(callback: CallbackQuery):
         text = f"""
 🔑 <b>Your Access Token</b>
 
-📋 <b>Access Token (Ready to Copy):</b>
-<code>{access_token}</code>
+📋 <b>Access Token (Click to Reveal):</b>
+<tg-spoiler><code>{access_token}</code></tg-spoiler>
 
 📱 <b>How to Copy:</b>
-• <b>Mobile:</b> Long press on token above → Copy
-• <b>Desktop:</b> Triple click to select → Ctrl+C
+• <b>Mobile:</b> Tap on hidden token above, then long press → Copy
+• <b>Desktop:</b> Click on hidden area, then triple click → Ctrl+C
 
-🔐 <b>Security Information:</b>
-• यह token आपके account की key है
-• इसे safely store करें  
-• अगली बार login के लिए इसकी जरूरत होगी
-• Token को किसी के साथ share न करें
+🔐 <b>Enhanced Security Features:</b>
+• 🔒 Token hidden by default for privacy
+• 👆 Tap to reveal sensitive information
+• 🛡️ This token is your account's master key
+• 💾 Store it safely  
+• 🔑 You'll need it for next login
+• ⚠️ Don't share the token with anyone
 
 💡 <b>Usage:</b>
-• New device पर login करने के लिए
-• Account recovery के लिए
-• Secure access के लिए
+• For logging in on new devices
+• For account recovery
+• For secure access
 
-⚠️ <b>Keep this token private and secure!</b>
+🔐 <b>Privacy Protected: Token hidden until you click on it!</b>
 """
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -2575,19 +2626,19 @@ async def cb_logout_account(callback: CallbackQuery):
 📱 <b>Phone:</b> {user_data.get('phone_number', 'N/A')}
 💰 <b>Balance:</b> {format_currency(user_data.get('balance', 0.0)) if format_currency else f"₹{user_data.get('balance', 0.0):.2f}"}
 
-🔴 <b>Logout करने से क्या होगा:</b>
-• Account temporarily deactivated रहेगा
-• सभी services access बंद हो जाएंगी  
-• Main menu में वापस "Create Account" और "Login" options मिलेंगे
-• Data safe रहेगा - कुछ भी delete नहीं होगा
-• Same phone/token से दोबारा login कर सकते हैं
+🔴 <b>What happens when you logout:</b>
+• Account will be temporarily deactivated
+• All service access will be disabled  
+• "Create Account" and "Login" options will return to main menu
+• Data will remain safe - nothing will be deleted
+• You can login again with the same phone/token
 
-💡 <b>Logout के बाद:</b>
-• Account create करने का option मिलेगा
-• पुराने account में login करने का option भी मिलेगा  
-• Access token same रहेगा
+💡 <b>After logout:</b>
+• Option to create new account will be available
+• Option to login to previous account will also be available
+• Access token will remain the same
 
-❓ <b>क्या आप वाकई logout करना चाहते हैं?</b>
+❓ <b>Do you really want to logout?</b>
 """
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -2623,10 +2674,10 @@ async def cb_confirm_logout(callback: CallbackQuery):
 
 🔓 <b>Account logout successful</b>
 
-💡 <b>आप अब दोबारा:</b>
-• नया account create कर सकते हैं
-• पुराने account में login कर सकते हैं (Phone/Token से)
-• सभी services access करने के लिए account required है
+💡 <b>You can now again:</b>
+• Create a new account
+• Login to old account (with Phone/Token)
+• Account required to access all services
 
 🔐 <b>Login Options:</b>
 • Phone Number से login करें
